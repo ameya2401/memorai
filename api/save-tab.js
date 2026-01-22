@@ -37,9 +37,27 @@ export default async function handler(req, res) {
       return;
     }
 
+    // Validate URL format
+    try {
+      const parsedUrl = new URL(url);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        res.status(400).json({ error: 'Invalid URL: must start with http:// or https://' });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: 'Invalid URL format' });
+      return;
+    }
+
+    // Sanitize inputs (basic XSS prevention)
+    const sanitize = (str) => str ? String(str).slice(0, 1000).replace(/<[^>]*>/g, '') : null;
+    const sanitizedTitle = sanitize(title);
+    const sanitizedCategory = sanitize(category);
+    const sanitizedDescription = sanitize(description);
+
     // Use the provided userId directly
     let resolvedUserId = bodyUserId;
-    
+
     if (!resolvedUserId) {
       res.status(400).json({ error: 'Missing userId - authentication required' });
       return;
@@ -70,9 +88,9 @@ export default async function handler(req, res) {
 
     const { error } = await supabase.from('websites').insert({
       url,
-      title,
-      category,
-      description: description || null,
+      title: sanitizedTitle,
+      category: sanitizedCategory,
+      description: sanitizedDescription,
       favicon: favicon || null,
       user_id: resolvedUserId,
       created_at: created_at || new Date().toISOString(),

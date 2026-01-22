@@ -431,11 +431,39 @@
     <div class="subtitle">Save and organize your tabs</div>
   </div>
 
+  <!-- Centered bookmark import section directly below the header -->
+  <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+    <div id="importSection"
+      style="width: 100%; max-width: 320px; background: #1e1e1e; border: 1px solid #333333; border-radius: 8px; padding: 12px;">
+      <div style="text-align: center; margin-bottom: 8px;">
+        <button
+          id="importBookmarks"
+          class="btn btn-secondary"
+          style="width: auto; padding-left: 12px; padding-right: 12px; margin: 0 auto; display: inline-flex; justify-content: center;">
+          Import Bookmarks
+        </button>
+      </div>
+
+      <!-- Preview list populated by popup.js -->
+      <div id="bookmarksPreview"
+        style="display: none; margin-top: 4px; max-height: 180px; overflow-y: auto; font-size: 12px; color: #e8eaed; background:#181818; border-radius:6px; border:1px solid #333333; padding:8px;">
+      </div>
+
+      <div id="confirmImportContainer" style="display: none; margin-top: 8px; text-align: right;">
+        <button id="confirmImport" class="btn btn-primary"
+          style="width: auto; padding-left: 12px; padding-right: 12px;">
+          Confirm Import
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="saveSection">
     <div class="current-tab">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
         <img id="tabFavicon" class="tab-favicon" src="" alt="">
-        <div style="font-size: 11px; color: #9aa0a6; font-weight: 400;" class="current-website-label">Current Website</div>
+        <div style="font-size: 11px; color: #9aa0a6; font-weight: 400;" class="current-website-label">Current Website
+        </div>
       </div>
       <style>
         .dark .current-website-label {
@@ -455,7 +483,9 @@
 
       <div class="form-group">
         <label>Category</label>
-        <div style="background: #333333; border: 1px solid #333333; border-radius: 4px; padding: 3px 6px; color: #e8eaed; font-size: 11px; font-weight: 500; display: inline-block;" class="category-badge">
+        <div
+          style="background: #333333; border: 1px solid #333333; border-radius: 4px; padding: 3px 6px; color: #e8eaed; font-size: 11px; font-weight: 500; display: inline-block;"
+          class="category-badge">
           📝 Recently Added (Auto-assigned)
         </div>
       </div>
@@ -533,7 +563,7 @@
     .footer-text {
       color: #9aa0a6;
     }
-    
+
     .dark .footer-text {
       color: #9aa0a6;
     }

@@ -42,6 +42,93 @@ function getFaviconUrl(url) {
   }
 }
 
+// Fetches all bookmarks from the browser and flattens them into a simple list.
+// Only leaf nodes with a URL are returned.
+async function fetchAllBookmarks() {
+  return new Promise((resolve) => {
+    try {
+      chrome.bookmarks.getTree((tree) => {
+        const results = [];
+
+        function walk(nodes) {
+          for (const node of nodes) {
+            if (node.url) {
+              // Leaf node: this is an actual bookmark
+              results.push({
+                id: node.id,
+                title: node.title || node.url,
+                url: node.url,
+              });
+            } else if (node.children && node.children.length > 0) {
+              // Folder: recurse into children
+              walk(node.children);
+            }
+          }
+        }
+
+        walk(tree);
+        resolve(results);
+      });
+    } catch (error) {
+      console.error('Failed to read bookmarks:', error);
+      resolve([]);
+    }
+  });
+}
+
+// Keep bookmarks in memory between "Import" and "Confirm"
+let fetchedBookmarks = [];
+
+// Renders a very simple text preview into #bookmarksPreview.
+// For V1 we just show title + URL and maybe limit number.
+function renderBookmarksPreview(bookmarks) {
+  const container = document.getElementById('bookmarksPreview');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!bookmarks.length) {
+    container.textContent = 'No bookmarks found.';
+    return;
+  }
+
+  const maxToShow = 50; // keep UI light; still importing all on confirm
+  const list = document.createElement('ul');
+  list.style.listStyle = 'none';
+  list.style.padding = '0';
+  list.style.margin = '0';
+
+  bookmarks.slice(0, maxToShow).forEach((bm) => {
+    const li = document.createElement('li');
+    li.style.marginBottom = '6px';
+
+    // Title in bold, URL on next line, both readable
+    const titleEl = document.createElement('div');
+    titleEl.style.fontWeight = '500';
+    titleEl.style.fontSize = '12px';
+    titleEl.textContent = bm.title;
+
+    const urlEl = document.createElement('div');
+    urlEl.style.fontSize = '11px';
+    urlEl.style.color = '#9aa0a6';
+    urlEl.textContent = bm.url;
+
+    li.appendChild(titleEl);
+    li.appendChild(urlEl);
+
+    list.appendChild(li);
+  });
+
+  container.appendChild(list);
+
+  if (bookmarks.length > maxToShow) {
+    const info = document.createElement('div');
+    info.style.marginTop = '4px';
+    info.textContent = `Showing first ${maxToShow} of ${bookmarks.length} bookmarks. All will be imported.`;
+    container.appendChild(info);
+  }
+}
+
 // Show status message
 function showStatus(message, type = 'success') {
   const statusEl = document.getElementById('status');
@@ -153,7 +240,7 @@ function applyDarkMode() {
   } else {
     document.body.classList.remove('dark');
   }
-  
+
   // Listen for changes
   if (window.matchMedia) {
     const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -165,7 +252,7 @@ function applyDarkMode() {
 async function initPopup() {
   // Apply dark mode first
   applyDarkMode();
-  
+
   const isConfigured = await loadConfig();
 
   if (!isConfigured) {
@@ -209,19 +296,19 @@ async function initPopup() {
       outline: none;
       font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     `;
-    
+
     // Apply color based on dark mode - check if body has dark class
     const updateTitleColor = () => {
       titleInput.style.color = '#e8eaed';
     };
-    
+
     // Set initial color
     updateTitleColor();
-    
+
     // Update color when dark mode changes
     const observer = new MutationObserver(updateTitleColor);
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    
+
     const titleElement = document.getElementById('tabTitle');
     titleElement.innerHTML = '';
     titleElement.style.minHeight = '20px';
@@ -241,6 +328,95 @@ async function initPopup() {
   } catch (error) {
     console.error('Failed to load tab info:', error);
     showStatus('Failed to load tab information', 'error');
+  }
+
+  // Wire up bookmark import controls after base UI is ready
+  const importBtn = document.getElementById('importBookmarks');
+  const confirmBtn = document.getElementById('confirmImport');
+  const confirmContainer = document.getElementById('confirmImportContainer');
+  const previewContainer = document.getElementById('bookmarksPreview');
+
+  if (importBtn && confirmBtn && previewContainer) {
+    importBtn.addEventListener('click', async () => {
+      importBtn.disabled = true;
+      const originalText = importBtn.textContent;
+      importBtn.textContent = 'Fetching bookmarks...';
+
+      try {
+        fetchedBookmarks = await fetchAllBookmarks();
+        renderBookmarksPreview(fetchedBookmarks);
+
+        previewContainer.style.display = 'block';
+        if (confirmContainer) {
+          confirmContainer.style.display = fetchedBookmarks.length ? 'block' : 'none';
+        } else {
+          confirmBtn.style.display = fetchedBookmarks.length ? 'block' : 'none';
+        }
+      } catch (err) {
+        console.error('Failed to fetch bookmarks:', err);
+        showStatus('Failed to fetch bookmarks', 'error');
+      } finally {
+        importBtn.disabled = false;
+        importBtn.textContent = originalText;
+      }
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+      if (!fetchedBookmarks.length) return;
+
+      confirmBtn.disabled = true;
+      const originalText = confirmBtn.textContent;
+      confirmBtn.textContent = 'Importing...';
+
+      try {
+        // Reuse existing authentication helper to get user ID
+        const userId = await authenticateUser();
+
+        const response = await fetch(`${config.dashboardUrl}/api/import-bookmarks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(config.extensionSecret ? { 'x-extension-secret': config.extensionSecret } : {}),
+          },
+          body: JSON.stringify({
+            userId,
+            bookmarks: fetchedBookmarks.map((bm) => ({
+              title: bm.title,
+              url: bm.url,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          let errorText = 'Import failed';
+          try {
+            const errorData = await response.json();
+            errorText = errorData.error || errorText;
+          } catch {
+            errorText = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorText);
+        }
+
+        showStatus('Bookmarks imported successfully!', 'success');
+
+        // Clear preview and state
+        fetchedBookmarks = [];
+        previewContainer.style.display = 'none';
+        previewContainer.innerHTML = '';
+        if (confirmContainer) {
+          confirmContainer.style.display = 'none';
+        } else {
+          confirmBtn.style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Import failed:', err);
+        showStatus(`Import failed: ${err.message}`, 'error');
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = originalText;
+      }
+    });
   }
 }
 

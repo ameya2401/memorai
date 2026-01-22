@@ -1,6 +1,14 @@
 import type { Website } from '../types';
 
 export const searchWebsitesWithAI = async (query: string, websites: Website[]): Promise<Website[]> => {
+  if (!query.trim()) {
+    return websites;
+  }
+
+  if (websites.length === 0) {
+    return [];
+  }
+
   try {
     const websitesContext = websites.map(w => ({
       id: w.id,
@@ -10,30 +18,62 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
       description: w.description || '',
     }));
 
+    console.log(`[AI Search] Searching ${websites.length} websites with query: "${query}"`);
+
     // Prefer secure serverless endpoint first
-    const res = await fetch('/api/ai-search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, websites: websitesContext }),
-    });
+    try {
+      const res = await fetch('/api/ai-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, websites: websitesContext }),
+      });
 
-    if (res.ok) {
-      const data: { ids?: string[] } = await res.json();
-      if (Array.isArray(data.ids)) {
-        const ordered = data.ids
-          .map(id => websites.find(w => w.id === id))
-          .filter(Boolean) as Website[];
-        return ordered.length ? ordered : textSearch(query, websites);
+      if (res.ok) {
+        const data: { ids?: string[]; error?: string } = await res.json();
+
+        if (data.error) {
+          console.error('[AI Search] Server error:', data.error);
+          throw new Error(data.error);
+        }
+
+        if (Array.isArray(data.ids)) {
+          const ordered = data.ids
+            .map(id => websites.find(w => w.id === id))
+            .filter(Boolean) as Website[];
+
+          console.log(`[AI Search] Found ${ordered.length} results via server endpoint`);
+          return ordered.length > 0 ? ordered : textSearch(query, websites);
+        }
+      } else {
+        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        console.error('[AI Search] Server response error:', res.status, errorData);
+        throw new Error(errorData.error || `Server returned ${res.status}`);
       }
-    }
+    } catch (serverError: any) {
+      console.warn('[AI Search] Server endpoint failed, trying client-side fallback:', serverError.message);
 
-    // If API route fails, try client-side key if present, else fallback to text search
-    if (import.meta.env.VITE_GEMINI_API_KEY) {
-      const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      // If API route fails, try client-side key if present
+      if (import.meta.env.VITE_GEMINI_API_KEY) {
+        try {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-      const prompt = `Given this list of saved websites and a user search query, return ONLY the IDs of the most relevant websites in order of relevance as a JSON array.
+          if (!apiKey) {
+            throw new Error('VITE_GEMINI_API_KEY is empty');
+          }
+
+          const genAI = new GoogleGenerativeAI(apiKey);
+          // Try multiple model names in order of preference (updated for 2025/2026)
+          // gemini-1.5-flash was retired in September 2025, using newer models
+          // Note: We don't do test requests to conserve API quota (free tier: 5 req/min)
+          const modelNames = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+
+          // Just use the first model directly without testing
+          const selectedModelName = modelNames[0];
+          console.log(`[AI Search] Using model: ${selectedModelName}`);
+          const model = genAI.getGenerativeModel({ model: selectedModelName });
+
+          const prompt = `Given this list of saved websites and a user search query, return ONLY the IDs of the most relevant websites in order of relevance as a JSON array.
 
 User Query: "${query}"
 
@@ -49,115 +89,82 @@ Instructions:
 
 Response format: ["id1", "id2", "id3"]`;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      try {
-        const ids = JSON.parse(text.trim());
-        if (Array.isArray(ids)) {
-          const ordered = ids
-            .map(id => websites.find(w => w.id === id))
-            .filter(Boolean) as Website[];
-          if (ordered.length) return ordered;
+          const result = await model.generateContent(prompt);
+          const response = await result.response;
+          const text = response.text();
+
+          console.log('[AI Search] Client-side API response received');
+
+          try {
+            // Try to extract JSON from the response (might have markdown code blocks)
+            let jsonText = text.trim();
+            // Remove markdown code blocks if present
+            if (jsonText.startsWith('```')) {
+              jsonText = jsonText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '');
+            }
+
+            const ids = JSON.parse(jsonText.trim());
+            if (Array.isArray(ids)) {
+              const ordered = ids
+                .map(id => websites.find(w => w.id === id))
+                .filter(Boolean) as Website[];
+
+              console.log(`[AI Search] Found ${ordered.length} results via client-side API`);
+              if (ordered.length > 0) return ordered;
+            }
+          } catch (parseError) {
+            console.error('[AI Search] Failed to parse AI response:', parseError);
+            console.error('[AI Search] Raw response:', text);
+            throw new Error('Failed to parse AI response');
+          }
+        } catch (clientError: any) {
+          console.error('[AI Search] Client-side API failed:', clientError.message);
+
+          // For rate limit errors, silently fall back to text search instead of showing error
+          if (clientError.message?.includes('429')) {
+            console.log('[AI Search] Rate limit exceeded, falling back to text search');
+            return textSearch(query, websites);
+          }
+
+          // Provide more helpful error messages for other errors
+          let errorMessage = 'Client-side AI search failed';
+          if (clientError.message?.includes('API_KEY')) {
+            errorMessage = 'Invalid or missing Gemini API key';
+          } else if (clientError.message?.includes('404')) {
+            errorMessage = 'Gemini model not found or not available';
+          } else if (clientError.message?.includes('403')) {
+            errorMessage = 'Gemini API access denied - check your API key permissions';
+          }
+
+          throw new Error(`${errorMessage}: ${clientError.message}`);
         }
-      } catch {
-        // ignore and fallback
+      } else {
+        // No client-side API key, just use text search silently
+        console.log('[AI Search] No client-side API key, using text search');
+        return textSearch(query, websites);
       }
     }
 
+    // Fallback to text search
+    console.log('[AI Search] Falling back to text search');
     return textSearch(query, websites);
-  } catch (error) {
-    console.error('AI search failed:', error);
-    return textSearch(query, websites);
+  } catch (error: any) {
+    // For rate limit errors anywhere, silently fall back to text search
+    if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+      console.log('[AI Search] Rate limit hit, using text search instead');
+      return textSearch(query, websites);
+    }
+    console.error('[AI Search] All methods failed:', error);
+    throw error; // Re-throw to let Dashboard handle it
   }
 };
 
+// Re-export smartSearch for fallback text search
+// This provides fuzzy matching capabilities when AI search fails
+import { smartSearch } from './smartSearch';
+
+// Simple wrapper to maintain backward compatibility
 const textSearch = (query: string, websites: Website[]): Website[] => {
-  if (!query.trim()) return websites;
-  
-  const searchTerms = query.toLowerCase().trim().split(/\s+/);
-  
-  return websites.filter(website => {
-    const searchableText = [
-      website.title || '',
-      website.url || '',
-      website.category || '',
-      website.description || ''
-    ].join(' ').toLowerCase();
-    
-    // Remove spaces and special characters for flexible matching
-    const normalizedSearchableText = searchableText.replace(/[\s\-_\.]/g, '');
-    const normalizedQuery = query.toLowerCase().replace(/[\s\-_\.]/g, '');
-    
-    // Score the match quality
-    let score = 0;
-    
-    // 1. Exact phrase match (highest score)
-    if (searchableText.includes(query.toLowerCase())) {
-      score += 100;
-    }
-    
-    // 2. Normalized match (handles space differences)
-    if (normalizedSearchableText.includes(normalizedQuery)) {
-      score += 80;
-    }
-    
-    // 3. All search terms present (partial match)
-    const allTermsPresent = searchTerms.every(term => 
-      searchableText.includes(term) || normalizedSearchableText.includes(term.replace(/[\s\-_\.]/g, ''))
-    );
-    if (allTermsPresent) {
-      score += 60;
-    }
-    
-    // 4. Any search term present (loose match)
-    const anyTermPresent = searchTerms.some(term => 
-      searchableText.includes(term) || normalizedSearchableText.includes(term.replace(/[\s\-_\.]/g, ''))
-    );
-    if (anyTermPresent) {
-      score += 20;
-    }
-    
-    // 5. Bonus for title matches
-    const titleText = (website.title || '').toLowerCase();
-    const normalizedTitle = titleText.replace(/[\s\-_\.]/g, '');
-    if (titleText.includes(query.toLowerCase()) || normalizedTitle.includes(normalizedQuery)) {
-      score += 30;
-    }
-    
-    return score > 0;
-  }).sort((a, b) => {
-    // Calculate scores for sorting
-    const getScore = (website: Website) => {
-      const searchableText = [
-        website.title || '',
-        website.url || '',
-        website.category || '',
-        website.description || ''
-      ].join(' ').toLowerCase();
-      
-      const normalizedSearchableText = searchableText.replace(/[\s\-_\.]/g, '');
-      const normalizedQuery = query.toLowerCase().replace(/[\s\-_\.]/g, '');
-      
-      let score = 0;
-      
-      if (searchableText.includes(query.toLowerCase())) score += 100;
-      if (normalizedSearchableText.includes(normalizedQuery)) score += 80;
-      
-      const allTermsPresent = searchTerms.every(term => 
-        searchableText.includes(term) || normalizedSearchableText.includes(term.replace(/[\s\-_\.]/g, ''))
-      );
-      if (allTermsPresent) score += 60;
-      
-      const titleText = (website.title || '').toLowerCase();
-      const normalizedTitle = titleText.replace(/[\s\-_\.]/g, '');
-      if (titleText.includes(query.toLowerCase()) || normalizedTitle.includes(normalizedQuery)) {
-        score += 30;
-      }
-      
-      return score;
-    };
-    
-    return getScore(b) - getScore(a); // Sort by score descending
-  });
+  const result = smartSearch(query, websites);
+  return result.websites;
 };
