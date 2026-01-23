@@ -546,7 +546,7 @@ const Dashboard: React.FC = () => {
       <div className="max-w-[120rem] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
-          <div className="w-full lg:w-64 flex-shrink-0 lg:sticky lg:top-8 lg:self-start">
+          <div className="w-full lg:w-64 flex-shrink-0 lg:sticky lg:top-8 lg:self-start z-30">
             <CategorySidebar
               categories={categories}
               selectedCategory={selectedCategory}
