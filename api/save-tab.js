@@ -86,6 +86,35 @@ export default async function handler(req, res) {
       return;
     }
 
+    // Auto-create category if it doesn't exist (and not a system category)
+    if (sanitizedCategory &&
+      sanitizedCategory !== 'Recently Added' &&
+      sanitizedCategory !== 'Uncategorized') {
+      try {
+        // Check if category already exists
+        const { data: existingCat } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('user_id', resolvedUserId)
+          .eq('name', sanitizedCategory)
+          .single();
+
+        // Create if doesn't exist
+        if (!existingCat) {
+          await supabase
+            .from('categories')
+            .insert({
+              name: sanitizedCategory,
+              user_id: resolvedUserId
+            });
+          console.log(`Auto-created category: ${sanitizedCategory}`);
+        }
+      } catch (catError) {
+        // Ignore category creation errors - best effort
+        console.log('Category auto-create skipped:', catError?.message);
+      }
+    }
+
     const { error } = await supabase.from('websites').insert({
       url,
       title: sanitizedTitle,

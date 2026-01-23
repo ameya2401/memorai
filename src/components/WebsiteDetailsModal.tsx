@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, Globe, Edit2, Save, Calendar, Bell, BellOff } from 'lucide-react';
+import { X, ExternalLink, Globe, Edit2, Save, Calendar, Bell, BellOff, Link2 } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { checkReminderMigration } from '../lib/reminderMigration';
+import { findRelatedWebsites } from '../lib/recommender';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
@@ -14,6 +15,8 @@ interface WebsiteDetailsModalProps {
   onClose: () => void;
   onUpdate: () => void;
   categories: string[];
+  allWebsites?: Website[];
+  onViewRelated?: (website: Website) => void;
 }
 
 const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
@@ -21,7 +24,9 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
   isOpen,
   onClose,
   onUpdate,
-  categories
+  categories,
+  allWebsites = [],
+  onViewRelated,
 }) => {
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
@@ -32,6 +37,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
     title: website.title,
     category: website.category,
     description: website.description || '',
+    newCategory: '',
   });
 
   useEffect(() => {
@@ -59,7 +65,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
         .from('websites')
         .update({
           title: editData.title.trim(),
-          category: editData.category,
+          category: editData.category === '__create_new__' ? editData.newCategory.trim() : editData.category,
           description: editData.description.trim() || null,
           updated_at: new Date().toISOString(),
         })
@@ -84,6 +90,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
       title: website.title,
       category: website.category,
       description: website.description || '',
+      newCategory: '',
     });
     setIsEditing(false);
   };
@@ -183,8 +190,8 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
               <button
                 onClick={() => setIsEditing(true)}
                 className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                    ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                    : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                   }`}
                 title="Edit website"
               >
@@ -194,8 +201,8 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             <button
               onClick={onClose}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
             >
               <X className="h-3.5 w-3.5" />
@@ -216,8 +223,8 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                 value={editData.title}
                 onChange={(e) => setEditData(prev => ({ ...prev, title: e.target.value }))}
                 className={`w-full px-2 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
-                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                   }`}
                 placeholder="Website title"
               />
@@ -239,8 +246,8 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                    ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                    : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                   }`}
                 title="Open in new tab"
               >
@@ -254,25 +261,42 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
               }`}>Category</label>
             {isEditing ? (
-              <select
-                value={editData.category}
-                onChange={(e) => setEditData(prev => ({ ...prev, category: e.target.value }))}
-                className={`w-full px-2 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
+              <div>
+                <select
+                  value={editData.category}
+                  onChange={(e) => setEditData(prev => ({ ...prev, category: e.target.value, newCategory: '' }))}
+                  className={`w-full px-2 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
                     ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9]'
                     : 'border-[#e9e9e9] bg-white text-[#37352f]'
-                  }`}
-              >
-                <option value="Uncategorized">Uncategorized</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+                    }`}
+                >
+                  <option value="Uncategorized">Uncategorized</option>
+                  <option value="Recently Added">📝 Recently Added</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                  <option value="__create_new__">➕ Create New Category</option>
+                </select>
+                {editData.category === '__create_new__' && (
+                  <input
+                    type="text"
+                    value={editData.newCategory}
+                    onChange={(e) => setEditData(prev => ({ ...prev, newCategory: e.target.value }))}
+                    placeholder="Enter new category name..."
+                    className={`w-full mt-2 px-2 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
+                      ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                      : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                      }`}
+                    autoFocus
+                  />
+                )}
+              </div>
             ) : (
               <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded transition-colors duration-300 ${isDarkMode
-                  ? 'bg-[#3e3e3e] text-[#e9e9e9]'
-                  : 'bg-[#e9e9e9] text-[#37352f]'
+                ? 'bg-[#3e3e3e] text-[#e9e9e9]'
+                : 'bg-[#e9e9e9] text-[#37352f]'
                 }`}>
                 {website.category}
               </span>
@@ -289,8 +313,8 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
                 rows={4}
                 className={`w-full px-2 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
-                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                   }`}
                 placeholder="Add a description or notes about this website..."
               />
@@ -342,12 +366,12 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                   <button
                     onClick={handleToggleReminders}
                     className={`text-xs px-3 py-1 rounded-full transition-colors ${website.reminder_dismissed
-                        ? isDarkMode
-                          ? 'bg-green-600 text-white hover:bg-green-500'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                        : isDarkMode
-                          ? 'bg-red-600 text-white hover:bg-red-500'
-                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      ? isDarkMode
+                        ? 'bg-green-600 text-white hover:bg-green-500'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : isDarkMode
+                        ? 'bg-red-600 text-white hover:bg-red-500'
+                        : 'bg-red-100 text-red-700 hover:bg-red-200'
                       }`}
                   >
                     {website.reminder_dismissed ? 'Enable' : 'Disable'}
@@ -367,28 +391,75 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
           </div>
         </div>
 
+        {/* Related Websites Section */}
+        {allWebsites.length > 1 && (() => {
+          const relatedWebsites = findRelatedWebsites(website, allWebsites, 4);
+          if (relatedWebsites.length === 0) return null;
+
+          return (
+            <div className={`p-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e]' : 'border-[#e9e9e9]'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Link2 className={`h-4 w-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`} />
+                <h3 className={`text-sm font-medium ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>
+                  Related to this item
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {relatedWebsites.map((relatedSite) => (
+                  <button
+                    key={relatedSite.id}
+                    onClick={() => onViewRelated?.(relatedSite)}
+                    className={`text-left p-3 rounded-lg border transition-all duration-150 hover:scale-[1.02] ${isDarkMode
+                      ? 'border-[#2e2e2e] bg-[#191919] hover:bg-[#2e2e2e] hover:border-[#3e3e3e]'
+                      : 'border-[#e9e9e9] bg-[#f7f6f3] hover:bg-[#f1f1ef] hover:border-[#c9c9c9]'
+                      }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {relatedSite.favicon ? (
+                          <img src={relatedSite.favicon} alt="" className="w-4 h-4 rounded" />
+                        ) : (
+                          <Globe className={`w-4 h-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`} />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-medium truncate ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>
+                          {relatedSite.title}
+                        </p>
+                        <p className={`text-xs truncate mt-0.5 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`}>
+                          {relatedSite.category}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Footer */}
         {isEditing && (
           <div className={`flex items-center justify-end gap-2 p-4 border-t transition-colors duration-300 ${isDarkMode
-              ? 'border-[#2e2e2e] bg-[#191919]'
-              : 'border-[#e9e9e9] bg-white'
+            ? 'border-[#2e2e2e] bg-[#191919]'
+            : 'border-[#e9e9e9] bg-white'
             }`}>
             <button
               onClick={handleCancel}
               disabled={isSaving}
               className={`px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 ${isDarkMode
-                  ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || !editData.title.trim()}
+              disabled={isSaving || !editData.title.trim() || (editData.category === '__create_new__' && !editData.newCategory.trim())}
               className={`px-2 py-1.5 rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 flex items-center gap-2 ${isDarkMode
-                  ? 'bg-[#2e2e2e] text-[#e9e9e9] hover:bg-[#3e3e3e]'
-                  : 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e9e9e9]'
+                ? 'bg-[#2e2e2e] text-[#e9e9e9] hover:bg-[#3e3e3e]'
+                : 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e9e9e9]'
                 }`}
             >
               {isSaving ? (

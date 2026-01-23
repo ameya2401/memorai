@@ -149,6 +149,72 @@ function autoCategorize(url) {
   return 'Recently Added';
 }
 
+// Fetch categories from API
+async function fetchCategories() {
+  try {
+    const userId = config.userId || await authenticateUser();
+    const response = await fetch(`${config.dashboardUrl}/api/categories?userId=${userId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories');
+    }
+    const data = await response.json();
+    return data.categories || [];
+  } catch (error) {
+    console.error('Failed to fetch categories:', error);
+    return [];
+  }
+}
+
+// Populate category dropdown
+async function populateCategoryDropdown() {
+  const selectEl = document.getElementById('categorySelect');
+  const newCatContainer = document.getElementById('newCategoryContainer');
+
+  if (!selectEl) return;
+
+  try {
+    const categories = await fetchCategories();
+
+    selectEl.innerHTML = '';
+
+    // Add default option
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = 'Recently Added';
+    defaultOpt.textContent = '📝 Recently Added';
+    selectEl.appendChild(defaultOpt);
+
+    // Add existing categories
+    categories.forEach(cat => {
+      if (cat.name !== 'Recently Added') {
+        const opt = document.createElement('option');
+        opt.value = cat.name;
+        opt.textContent = cat.name;
+        selectEl.appendChild(opt);
+      }
+    });
+
+    // Add "Create New" option
+    const createOpt = document.createElement('option');
+    createOpt.value = '__create_new__';
+    createOpt.textContent = '➕ Create New Category';
+    selectEl.appendChild(createOpt);
+
+    // Handle change event
+    selectEl.addEventListener('change', () => {
+      if (selectEl.value === '__create_new__') {
+        newCatContainer.style.display = 'block';
+        document.getElementById('newCategoryInput')?.focus();
+      } else {
+        newCatContainer.style.display = 'none';
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to populate categories:', error);
+    selectEl.innerHTML = '<option value="Recently Added">📝 Recently Added</option>';
+  }
+}
+
 // Authenticate user and get user ID
 async function authenticateUser() {
   if (config.userId) {
@@ -330,6 +396,9 @@ async function initPopup() {
     showStatus('Failed to load tab information', 'error');
   }
 
+  // Populate category dropdown
+  await populateCategoryDropdown();
+
   // Wire up bookmark import controls after base UI is ready
   const importBtn = document.getElementById('importBookmarks');
   const confirmBtn = document.getElementById('confirmImport');
@@ -493,10 +562,23 @@ document.getElementById('saveTab')?.addEventListener('click', async () => {
     const titleInput = document.querySelector('.tab-title-input');
     const description = document.getElementById('description').value.trim();
 
+    // Get selected category or new category
+    const categorySelect = document.getElementById('categorySelect');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    let category = 'Recently Added';
+
+    if (categorySelect) {
+      if (categorySelect.value === '__create_new__' && newCategoryInput) {
+        category = newCategoryInput.value.trim() || 'Recently Added';
+      } else if (categorySelect.value && categorySelect.value !== '__loading__') {
+        category = categorySelect.value;
+      }
+    }
+
     const tabData = {
       url: tab.url,
       title: titleInput ? titleInput.value.trim() : (tab.title || 'Untitled'),
-      category: 'Recently Added', // Always use 'Recently Added' category
+      category: category,
       description: description || null,
       favicon: getFaviconUrl(tab.url),
       created_at: new Date().toISOString()

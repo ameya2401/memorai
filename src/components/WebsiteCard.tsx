@@ -1,7 +1,8 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { ExternalLink, Trash2, Globe } from 'lucide-react';
+import { ExternalLink, Trash2, Globe, Copy } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import toast from 'react-hot-toast';
 import type { Website } from '../types';
 
 interface WebsiteCardProps {
@@ -31,6 +32,17 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
     e.stopPropagation();
   };
 
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(website.url);
+      toast.success('URL copied to clipboard');
+    } catch {
+      toast.error('Failed to copy URL');
+    }
+  };
+
   const getFaviconUrl = (url: string) => {
     try {
       const domain = new URL(url).hostname;
@@ -44,8 +56,8 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
     return (
       <div
         className={`border rounded-lg transition-all duration-300 p-4 cursor-pointer group focus:outline-none ${isDarkMode
-            ? 'bg-[#191919] border-[#2e2e2e] hover:bg-[#2e2e2e]'
-            : 'bg-white border-[#e9e9e9] hover:bg-[#f1f1ef]'
+          ? 'bg-[#191919] border-[#2e2e2e] hover:bg-[#2e2e2e]'
+          : 'bg-white border-[#e9e9e9] hover:bg-[#f1f1ef]'
           }`}
         onClick={handleView}
         tabIndex={0}
@@ -95,14 +107,24 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
           </div>
 
           <div className="flex items-center gap-1 ml-4 flex-shrink-0">
+            <button
+              onClick={handleCopy}
+              className={`p-2 rounded transition-all duration-150 ${isDarkMode
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                }`}
+              title="Copy URL"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
             <a
               href={website.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleLinkClick}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
               title="Open website"
             >
@@ -111,8 +133,8 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
             <button
               onClick={handleDelete}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
               title="Delete website"
             >
@@ -191,8 +213,8 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
   return (
     <div
       className={`border rounded-lg transition-all duration-300 overflow-hidden group cursor-pointer focus:outline-none ${isDarkMode
-          ? 'bg-[#191919] border-[#2e2e2e] hover:bg-[#2e2e2e]'
-          : 'bg-white border-[#e9e9e9] hover:bg-[#f1f1ef]'
+        ? 'bg-[#191919] border-[#2e2e2e] hover:bg-[#2e2e2e]'
+        : 'bg-white border-[#e9e9e9] hover:bg-[#f1f1ef]'
         }`}
       onClick={handleView}
       tabIndex={0}
@@ -224,14 +246,24 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
           </div>
 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150">
+            <button
+              onClick={handleCopy}
+              className={`p-2 rounded transition-all duration-150 ${isDarkMode
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                }`}
+              title="Copy URL"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
             <a
               href={website.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleLinkClick}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
               title="Open website"
             >
@@ -240,8 +272,8 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
             <button
               onClick={handleDelete}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
               title="Delete website"
             >

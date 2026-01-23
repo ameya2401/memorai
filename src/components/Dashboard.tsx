@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useReminders } from '../hooks/useReminders';
 import type { Website, Category } from '../types';
 import WebsiteCard from './WebsiteCard';
+import SkeletonCard from './SkeletonCard';
 import SearchBar from './SearchBar';
 import CategorySidebar from './CategorySidebar';
 import AddWebsiteModal from './AddWebsiteModal';
@@ -34,6 +35,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [searchSuggestion, setSearchSuggestion] = useState<string | null>(null);
+  const [isAIModeEnabled, setIsAIModeEnabled] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Build vocabulary for spelling suggestions (memoized)
@@ -96,24 +98,15 @@ const Dashboard: React.FC = () => {
     };
   }, [user]);
 
-  // Debounced search for regular text search (not AI)
+  // Debounced search
   useEffect(() => {
     // Clear existing timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // If it's an AI search, don't auto-trigger - wait for explicit search
-    if (searchQuery.startsWith('ai:')) {
-      const aiQuery = searchQuery.slice(3).trim();
-      // Only update active query if there's actual content after "ai:"
-      if (aiQuery.length === 0) {
-        // If just "ai:" with no query, clear the active search
-        setActiveSearchQuery('');
-        filterWebsites('');
-        return;
-      }
-      // Don't auto-trigger AI search - wait for Enter or button click
+    // If AI mode is enabled, don't auto-trigger - wait for explicit search (Enter key)
+    if (isAIModeEnabled) {
       return;
     }
 
@@ -121,14 +114,14 @@ const Dashboard: React.FC = () => {
     debounceTimerRef.current = setTimeout(() => {
       setActiveSearchQuery(searchQuery);
       filterWebsites(searchQuery);
-    }, 150); // Reduced from 300ms for snappier feel
+    }, 150);
 
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, isAIModeEnabled]);
 
   // Filter when active search query, websites, or category changes
   useEffect(() => {
@@ -182,8 +175,9 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const filterWebsites = async (query?: string) => {
+  const filterWebsites = async (query?: string, forceAI?: boolean) => {
     const searchQueryToUse = query !== undefined ? query : activeSearchQuery;
+    const useAI = forceAI !== undefined ? forceAI : isAIModeEnabled;
     let filtered = websites;
 
     // Filter by category
@@ -198,30 +192,27 @@ const Dashboard: React.FC = () => {
 
     // Filter by search
     if (searchQueryToUse.trim()) {
-      if (searchQueryToUse.startsWith('ai:')) {
+      if (useAI) {
         // AI-powered search
-        const aiQuery = searchQueryToUse.slice(3).trim();
-        if (aiQuery.length > 0) {
-          setIsSearchingAI(true);
-          setSearchSuggestion(null); // Clear suggestion for AI search
-          try {
-            console.log('Performing AI search with query:', aiQuery);
-            filtered = await searchWebsitesWithAI(aiQuery, filtered);
-            console.log('AI search results:', filtered.length);
-            if (filtered.length === 0) {
-              toast('No results found', { icon: 'ℹ️' });
-            }
-          } catch (error: any) {
-            console.error('AI search failed:', error);
-            const errorMessage = error?.message || 'AI search failed';
-            toast.error(`AI search failed: ${errorMessage}. Using text search instead.`);
-            // Fallback to smart text search
-            const result = smartSearch(aiQuery, filtered, vocabulary);
-            filtered = result.websites;
-            setSearchSuggestion(result.suggestion);
-          } finally {
-            setIsSearchingAI(false);
+        setIsSearchingAI(true);
+        setSearchSuggestion(null); // Clear suggestion for AI search
+        try {
+          console.log('Performing AI search with query:', searchQueryToUse);
+          filtered = await searchWebsitesWithAI(searchQueryToUse, filtered);
+          console.log('AI search results:', filtered.length);
+          if (filtered.length === 0) {
+            toast('No results found', { icon: 'ℹ️' });
           }
+        } catch (error: any) {
+          console.error('AI search failed:', error);
+          const errorMessage = error?.message || 'AI search failed';
+          toast.error(`AI search failed: ${errorMessage}. Using text search instead.`);
+          // Fallback to smart text search
+          const result = smartSearch(searchQueryToUse, filtered, vocabulary);
+          filtered = result.websites;
+          setSearchSuggestion(result.suggestion);
+        } finally {
+          setIsSearchingAI(false);
         }
       } else {
         // Smart text search with fuzzy matching and spelling suggestions
@@ -243,25 +234,14 @@ const Dashboard: React.FC = () => {
 
     if (!query) {
       setActiveSearchQuery('');
-      filterWebsites('');
+      filterWebsites('', isAIModeEnabled);
       return;
     }
 
-    if (query.startsWith('ai:')) {
-      const aiQuery = query.slice(3).trim();
-      if (aiQuery.length === 0) {
-        toast.error('Please enter a search query after "ai:"');
-        return;
-      }
-      // Set active query and trigger AI search
-      setActiveSearchQuery(query);
-      filterWebsites(query);
-    } else {
-      // Regular text search
-      setActiveSearchQuery(query);
-      filterWebsites(query);
-    }
-  }, [searchQuery]);
+    // Set active query and trigger search
+    setActiveSearchQuery(query);
+    filterWebsites(query, isAIModeEnabled);
+  }, [searchQuery, isAIModeEnabled]);
 
   // Calculate 'Recently Added' count
   const recentlyAddedCount = websites.filter(website => website.category === 'Recently Added').length;
@@ -426,8 +406,19 @@ const Dashboard: React.FC = () => {
                 }`}>
                 <span className={`text-sm font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
                   }`}>
-                  Welcome, <span className={`font-medium ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
-                    }`}>{user?.email?.split('@')[0]}</span>
+                  {(() => {
+                    const hour = new Date().getHours();
+                    const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+                    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                    const weeklyCount = websites.filter(w => new Date(w.created_at) > weekAgo).length;
+                    const userName = user?.email?.split('@')[0];
+                    return (
+                      <>
+                        {greeting}, <span className={`font-medium ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>{userName}</span>.
+                        {weeklyCount > 0 && <span className={`ml-1 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>You saved {weeklyCount} link{weeklyCount !== 1 ? 's' : ''} this week.</span>}
+                      </>
+                    );
+                  })()}
                 </span>
               </div>
 
@@ -522,13 +513,15 @@ const Dashboard: React.FC = () => {
                 onChange={setSearchQuery}
                 onSearch={handleSearch}
                 isSearchingAI={isSearchingAI}
-                placeholder="Search websites... (prefix with 'ai:' for AI search)"
+                placeholder="Search websites..."
                 suggestion={searchSuggestion}
                 onSuggestionClick={(suggestion) => {
                   setSearchQuery(suggestion);
                   setActiveSearchQuery(suggestion);
-                  filterWebsites(suggestion);
+                  filterWebsites(suggestion, false);
                 }}
+                isAIModeEnabled={isAIModeEnabled}
+                onAIModeToggle={() => setIsAIModeEnabled(!isAIModeEnabled)}
               />
 
               {/* Simple hint section for bookmark import via the browser extension */}
@@ -598,7 +591,17 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Websites Grid/List or Reminders Panel */}
-            {selectedCategory === 'Reminders' ? (
+            {loading && !dataLoaded ? (
+              <div className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                  : 'space-y-4 overflow-hidden'
+              }>
+                {[...Array(8)].map((_, i) => (
+                  <SkeletonCard key={i} viewMode={viewMode} />
+                ))}
+              </div>
+            ) : selectedCategory === 'Reminders' ? (
               <RemindersPanel
                 websites={filteredWebsites}
                 onOpenWebsite={handleReminderOpenWebsite}
@@ -681,6 +684,8 @@ const Dashboard: React.FC = () => {
           onClose={handleCloseDetailsModal}
           onUpdate={fetchWebsites}
           categories={categories.map(c => c.name)}
+          allWebsites={websites}
+          onViewRelated={(relatedWebsite) => setSelectedWebsite(relatedWebsite)}
         />
       )}
     </div>

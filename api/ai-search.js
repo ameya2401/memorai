@@ -56,7 +56,27 @@ export default async function handler(req, res) {
       description: w.description || '',
     }));
 
-    const prompt = `Given this list of saved websites and a user search query, return ONLY the IDs of the most relevant websites in order of relevance as a JSON array.\n\nUser Query: "${query}"\n\nWebsites:\n${JSON.stringify(websitesContext, null, 2)}\n\nInstructions:\n- Return only the IDs of relevant websites as a JSON array\n- Order by relevance (most relevant first)\n- Consider title, URL, category, and description\n- If no websites match, return an empty array\n- Return only valid IDs from the provided list\n\nResponse format: ["id1", "id2", "id3"]`;
+    const prompt = `You are a STRICT search engine for a personal website bookmarks app. Given a user's search query and a list of their saved websites, return ONLY the IDs of websites that are GENUINELY relevant.
+
+User Query: "${query}"
+
+Saved Websites:
+${JSON.stringify(websitesContext, null, 2)}
+
+STRICT MATCHING RULES:
+1. A website is relevant ONLY if:
+   - The title, URL, or description contains keywords from the query, OR
+   - The website's topic directly relates to the query's intent
+2. DO NOT return websites just because they are "vaguely related" or "might be useful"
+3. If the query asks about "resume", only return websites about resumes, CVs, job applications, career tips
+4. If the query asks about "cooking", only return websites about cooking, recipes, food
+5. Be VERY strict - it's better to return an empty array than to return irrelevant results
+6. Maximum 10 results, ordered by relevance (best match first)
+
+CRITICAL: If NO websites genuinely match the query, return an empty array: []
+Do NOT guess or return random websites. Users prefer no results over wrong results.
+
+Response format (JSON array of IDs only): ["id1", "id2"]`;
 
     try {
       const result = await model.generateContent(prompt);
