@@ -2,7 +2,7 @@ import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface SkeletonCardProps {
-    viewMode: 'grid' | 'list';
+    viewMode: 'grid' | 'list' | 'graph';
 }
 
 const SkeletonCard: React.FC<SkeletonCardProps> = ({ viewMode }) => {

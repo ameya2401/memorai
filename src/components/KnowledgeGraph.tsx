@@ -1,0 +1,176 @@
+import React, { useMemo, useRef, useState, useEffect } from 'react';
+import ForceGraph2D from 'react-force-graph-2d';
+import { Website } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+
+interface KnowledgeGraphProps {
+    websites: Website[];
+    onNodeClick: (website: Website) => void;
+}
+
+interface GraphNode {
+    id: string;
+    name: string;
+    val: number; // size
+    color: string;
+    type: 'category' | 'website';
+    data?: Website;
+}
+
+interface GraphLink {
+    source: string;
+    target: string;
+}
+
+const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }) => {
+    const { isDarkMode } = useTheme();
+    const fgRef = useRef<any>();
+    const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Colors for categories
+    const categoryColors: Record<string, string> = {
+        'Development': '#3b82f6', // blue
+        'Design': '#ec4899',      // pink
+        'Research': '#8b5cf6',    // purple
+        'News': '#10b981',        // green
+        'Shopping': '#f59e0b',    // amber
+        'Social': '#ef4444',      // red
+        'Tools': '#6366f1',       // indigo
+        'Other': '#64748b'        // slate
+    };
+
+    const getCategoryColor = (cat: string) => {
+        return categoryColors[cat] || categoryColors['Other'];
+    };
+
+    // Transform websites into graph data
+    const graphData = useMemo(() => {
+        const nodes: GraphNode[] = [];
+        const links: GraphLink[] = [];
+        const categories = new Set<string>();
+
+        websites.forEach(w => {
+            const cat = w.category || 'Uncategorized';
+            categories.add(cat);
+
+            // Website Node
+            nodes.push({
+                id: w.id,
+                name: w.title,
+                val: 5, // smaller size
+                color: isDarkMode ? '#e5e7eb' : '#374151', // light gray or dark gray
+                type: 'website',
+                data: w
+            });
+        });
+
+        // Category Hub Nodes
+        categories.forEach(cat => {
+            nodes.push({
+                id: `cat-${cat}`,
+                name: cat,
+                val: 15, // larger size
+                color: getCategoryColor(cat),
+                type: 'category'
+            });
+        });
+
+        // Links: Website -> Category
+        websites.forEach(w => {
+            const cat = w.category || 'Uncategorized';
+            links.push({
+                source: `cat-${cat}`,
+                target: w.id
+            });
+        });
+
+        return { nodes, links };
+    }, [websites, isDarkMode]);
+
+    // Handle Resize
+    useEffect(() => {
+        const updateDimensions = () => {
+            if (containerRef.current) {
+                setContainerDimensions({
+                    width: containerRef.current.clientWidth,
+                    height: containerRef.current.clientHeight
+                });
+            }
+        };
+
+        window.addEventListener('resize', updateDimensions);
+        updateDimensions();
+
+        return () => window.removeEventListener('resize', updateDimensions);
+    }, []);
+
+    const handleZoomIn = () => {
+        fgRef.current?.zoom(fgRef.current.zoom() * 1.2, 400);
+    };
+
+    const handleZoomOut = () => {
+        fgRef.current?.zoom(fgRef.current.zoom() / 1.2, 400);
+    };
+
+    const handleCenter = () => {
+        fgRef.current?.zoomToFit(400);
+    };
+
+    return (
+        <div className="relative w-full h-full min-h-[500px] border rounded-lg overflow-hidden transition-colors duration-300"
+            style={{
+                borderColor: isDarkMode ? '#2e2e2e' : '#e9e9e9',
+                background: isDarkMode ? '#121212' : '#f9fafb'
+            }}
+            ref={containerRef}
+        >
+            <ForceGraph2D
+                ref={fgRef}
+                width={containerDimensions.width}
+                height={containerDimensions.height}
+                graphData={graphData}
+                nodeLabel="name"
+                backgroundColor={isDarkMode ? '#121212' : '#f9fafb'}
+                nodeColor="color"
+                linkColor={() => isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+                nodeRelSize={4}
+                onNodeClick={(node: any) => {
+                    if (node.type === 'website' && node.data) {
+                        onNodeClick(node.data);
+                    } else if (node.type === 'category') {
+                        // Maybe gather all children or zoom to cluster?
+                        fgRef.current?.centerAt(node.x, node.y, 1000);
+                        fgRef.current?.zoom(2.5, 1000);
+                    }
+                }}
+                cooldownTicks={100}
+                onEngineStop={() => fgRef.current?.zoomToFit(400)}
+                particles={isDarkMode ? graphData.links : []}
+                linkDirectionalParticles={isDarkMode ? 2 : 0}
+                linkDirectionalParticleWidth={2}
+                linkDirectionalParticleSpeed={0.005}
+            />
+
+            {/* Controls */}
+            <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+                <button onClick={handleZoomIn} className={`p-2 rounded-full shadow-lg transition-colors ${isDarkMode ? 'bg-[#1e1e1e] text-white hover:bg-[#2e2e2e]' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
+                    <ZoomIn size={20} />
+                </button>
+                <button onClick={handleZoomOut} className={`p-2 rounded-full shadow-lg transition-colors ${isDarkMode ? 'bg-[#1e1e1e] text-white hover:bg-[#2e2e2e]' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
+                    <ZoomOut size={20} />
+                </button>
+                <button onClick={handleCenter} className={`p-2 rounded-full shadow-lg transition-colors ${isDarkMode ? 'bg-[#1e1e1e] text-white hover:bg-[#2e2e2e]' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
+                    <Maximize2 size={20} />
+                </button>
+            </div>
+
+            <div className={`absolute top-4 left-4 px-3 py-1.5 rounded text-xs font-mono pointer-events-none opacity-60 ${isDarkMode ? 'text-gray-400 bg-black/20' : 'text-gray-500 bg-white/50'}`}>
+                {graphData.nodes.length} Nodes • {graphData.links.length} Links
+            </div>
+        </div>
+    );
+};
+
+export default KnowledgeGraph;

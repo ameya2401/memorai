@@ -13,8 +13,9 @@ import CategorySidebar from './CategorySidebar';
 import AddWebsiteModal from './AddWebsiteModal';
 import WebsiteDetailsModal from './WebsiteDetailsModal';
 import RemindersPanel from './RemindersPanel';
+import KnowledgeGraph from './KnowledgeGraph';
 import ThemeToggle from './ThemeToggle';
-import { LogOut, Plus, Grid, List, Download } from 'lucide-react';
+import { LogOut, Plus, Grid, List, Download, Network, Star } from 'lucide-react';
 import { signOut } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -29,7 +30,7 @@ const Dashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchQuery, setActiveSearchQuery] = useState(''); // The query that's actually being used for search
   const [isSearchingAI, setIsSearchingAI] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'graph'>('grid');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
   const [loading, setLoading] = useState(true);
@@ -193,6 +194,7 @@ const Dashboard: React.FC = () => {
         .from('websites')
         .select('*')
         .eq('user_id', user?.id)
+        .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -239,6 +241,9 @@ const Dashboard: React.FC = () => {
       if (selectedCategory === 'Reminders') {
         // Show pending reminders
         filtered = getPendingReminders();
+      } else if (selectedCategory === 'Favorites') {
+        // Show pinned websites
+        filtered = filtered.filter(website => website.is_pinned);
       } else {
         filtered = filtered.filter(website => website.category === selectedCategory);
       }
@@ -280,6 +285,49 @@ const Dashboard: React.FC = () => {
     }
 
     setFilteredWebsites(filtered);
+  };
+
+  // Derive pinned vs other websites from the filtered list
+  // If selectedCategory is 'Favorites', we don't separate them (everything is pinned/starred)
+  // If selectedCategory is 'Reminders', we don't separate them
+  const shouldSeparatePinned = selectedCategory !== 'Favorites' && selectedCategory !== 'Reminders' && viewMode !== 'graph';
+
+  const pinnedWebsites = shouldSeparatePinned ? filteredWebsites.filter(w => w.is_pinned) : [];
+  const otherWebsites = shouldSeparatePinned ? filteredWebsites.filter(w => !w.is_pinned) : filteredWebsites;
+
+
+  const handleTogglePin = async (website: Website) => {
+    try {
+      const newPinnedStatus = !website.is_pinned;
+
+      // Optimistic update
+      setWebsites(prev => prev.map(w =>
+        w.id === website.id ? { ...w, is_pinned: newPinnedStatus } : w
+      ).sort((a, b) => {
+        // Re-sort: Pinned first, then date
+        if (a.is_pinned === b.is_pinned) {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+        return a.is_pinned ? -1 : 1;
+      }));
+
+      const { error } = await supabase
+        .from('websites')
+        .update({ is_pinned: newPinnedStatus })
+        .eq('id', website.id)
+        .eq('user_id', user?.id);
+
+      if (error) {
+        // Revert on error
+        fetchWebsites();
+        throw error;
+      }
+
+      toast.success(newPinnedStatus ? 'Website pinned' : 'Website unpinned');
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast.error('Failed to update pin status');
+    }
   };
 
   // Handle explicit search trigger (Enter key or search button)
@@ -640,6 +688,20 @@ const Dashboard: React.FC = () => {
                   >
                     <List className="h-3.5 w-3.5" />
                   </button>
+                  <button
+                    onClick={() => setViewMode('graph')}
+                    className={`p-2 rounded transition-all duration-150 ${viewMode === 'graph'
+                      ? isDarkMode
+                        ? 'bg-[#2e2e2e] text-[#e9e9e9]'
+                        : 'bg-[#f1f1ef] text-[#37352f]'
+                      : isDarkMode
+                        ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                        : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                      }`}
+                    title="Graph view"
+                  >
+                    <Network className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -663,6 +725,13 @@ const Dashboard: React.FC = () => {
                 onDismissReminder={handleReminderDismiss}
                 onViewDetails={handleViewWebsite}
               />
+            ) : viewMode === 'graph' ? (
+              <div className="h-[600px] w-full">
+                <KnowledgeGraph
+                  websites={filteredWebsites}
+                  onNodeClick={(website) => handleViewWebsite(website)}
+                />
+              </div>
             ) : filteredWebsites.length === 0 ? (
               <div className="text-center py-16">
                 <Grid className={`h-12 w-12 mx-auto mb-6 transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'
@@ -686,22 +755,60 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className={
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
-                  : 'space-y-4 overflow-hidden'
-              }>
-                {filteredWebsites.slice(0, visibleCount).map((website) => (
-                  <WebsiteCard
-                    key={website.id}
-                    website={website}
-                    viewMode={viewMode}
-                    onDelete={handleDeleteWebsite}
-                    onView={handleViewWebsite}
-                  />
-                ))}
+              <div className="space-y-8">
+                {/* Pinned Section */}
+                {pinnedWebsites.length > 0 && (
+                  <div>
+                    <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
+                      <Star className="h-3 w-3 fill-current" />
+                      Pinned
+                    </h3>
+                    <div className={
+                      viewMode === 'grid'
+                        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                        : 'space-y-4 overflow-hidden'
+                    }>
+                      {pinnedWebsites.map((website) => (
+                        <WebsiteCard
+                          key={website.id}
+                          website={website}
+                          viewMode={viewMode}
+                          onDelete={handleDeleteWebsite}
+                          onView={handleViewWebsite}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Section */}
+                <div>
+                  {pinnedWebsites.length > 0 && (
+                    <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
+                      {selectedCategory === 'all' ? 'All Websites' : selectedCategory}
+                    </h3>
+                  )}
+                  <div className={
+                    viewMode === 'grid'
+                      ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                      : 'space-y-4 overflow-hidden'
+                  }>
+                    {otherWebsites.slice(0, visibleCount).map((website) => (
+                      <WebsiteCard
+                        key={website.id}
+                        website={website}
+                        viewMode={viewMode}
+                        onDelete={handleDeleteWebsite}
+                        onView={handleViewWebsite}
+                        onTogglePin={handleTogglePin}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
+
 
             {/* Infinite Scroll Trigger & Loader */}
             {filteredWebsites.length > 0 && !loading && (

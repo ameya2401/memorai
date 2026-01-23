@@ -1,18 +1,19 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { ExternalLink, Trash2, Globe, Copy } from 'lucide-react';
+import { ExternalLink, Trash2, Globe, Copy, Star } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
 import type { Website } from '../types';
 
 interface WebsiteCardProps {
   website: Website;
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'graph';
   onDelete: (id: string) => void;
   onView: (website: Website) => void;
+  onTogglePin: (website: Website) => void;
 }
 
-const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, onView }) => {
+const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, onView, onTogglePin }) => {
   const { isDarkMode } = useTheme();
 
   const cardStyle = { fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" };
@@ -41,6 +42,12 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
     } catch {
       toast.error('Failed to copy URL');
     }
+  };
+
+  const handleTogglePin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onTogglePin(website);
   };
 
   const getFaviconUrl = (url: string) => {
@@ -140,6 +147,16 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
+            <button
+              onClick={handleTogglePin}
+              className={`p-2 rounded transition-all duration-150 ${isDarkMode
+                ? 'text-[#787774] hover:text-[#fbbf24] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#fbbf24] hover:bg-[#f1f1ef]'
+                } ${website.is_pinned ? 'text-[#fbbf24]' : ''}`}
+              title={website.is_pinned ? "Unpin website" : "Pin website"}
+            >
+              <Star className={`h-3.5 w-3.5 ${website.is_pinned ? 'fill-[#fbbf24]' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -191,6 +208,15 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
                   }`}
               >
                 <Trash2 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleTogglePin}
+                className={`p-1 transition-colors ${isDarkMode
+                  ? 'text-gray-500 hover:text-[#fbbf24] hover:bg-gray-800'
+                  : 'text-gray-500 hover:text-[#fbbf24] hover:bg-gray-100'
+                  } ${website.is_pinned ? 'text-[#fbbf24]' : ''}`}
+              >
+                <Star className={`h-4 w-4 ${website.is_pinned ? 'fill-[#fbbf24]' : ''}`} />
               </button>
             </div>
           </div>
@@ -278,6 +304,16 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
               title="Delete website"
             >
               <Trash2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={handleTogglePin}
+              className={`p-2 rounded transition-all duration-150 ${isDarkMode
+                ? 'text-[#787774] hover:text-[#fbbf24] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] hover:text-[#fbbf24] hover:bg-[#f1f1ef]'
+                } ${website.is_pinned ? 'text-[#fbbf24]' : ''}`}
+              title={website.is_pinned ? "Unpin website" : "Pin website"}
+            >
+              <Star className={`h-3.5 w-3.5 ${website.is_pinned ? 'fill-[#fbbf24]' : ''}`} />
             </button>
           </div>
         </div>

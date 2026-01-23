@@ -9,6 +9,7 @@ export interface Website {
   created_at: string;
   last_reminded_at?: string;
   reminder_dismissed?: boolean;
+  is_pinned?: boolean;
 }
 
 export interface Category {
