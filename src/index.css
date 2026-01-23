@@ -7,18 +7,18 @@
   * {
     @apply antialiased;
   }
-  
+
   html {
     @apply font-sans;
   }
-  
+
   body {
     @apply bg-white dark:bg-black text-black dark:text-white;
     font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-weight: 400;
     line-height: 1.6;
   }
-  
+
   /* Remove default focus styles and add minimal ones */
   button:focus,
   input:focus,
@@ -27,7 +27,7 @@
   a:focus {
     @apply outline-none;
   }
-  
+
   /* Specific focus styles for interactive elements */
   button:focus-visible,
   input:focus-visible,
@@ -36,7 +36,7 @@
   a:focus-visible {
     @apply outline-none ring-1 ring-inset;
   }
-  
+
   /* Light mode focus */
   button:focus-visible:not(.dark *),
   input:focus-visible:not(.dark *),
@@ -45,7 +45,7 @@
   a:focus-visible:not(.dark *) {
     @apply ring-gray-300;
   }
-  
+
   /* Dark mode focus */
   .dark button:focus-visible,
   .dark input:focus-visible,
@@ -54,40 +54,59 @@
   .dark a:focus-visible {
     @apply ring-gray-600;
   }
-  
+
   /* Scrollbar styling for minimal aesthetic */
   ::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
+    height: 6px;
   }
-  
+
   ::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-900;
+    @apply bg-transparent;
   }
-  
+
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 dark:bg-gray-600 rounded-full;
+    @apply bg-gray-200 dark:bg-gray-800 rounded-full border-[2px] border-transparent bg-clip-content;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-600 dark:bg-gray-400;
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
   }
 }
 
 @layer components {
+
   /* Minimal button styles */
   .btn-minimal {
     @apply px-4 py-2 border border-black dark:border-white bg-white dark:bg-black text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all duration-200;
   }
-  
+
   .btn-minimal-inverse {
     @apply px-4 py-2 border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:bg-white hover:text-black dark:hover:bg-black dark:hover:text-white transition-all duration-200;
   }
-  
+
   /* Minimal input styles */
   .input-minimal {
     @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-black dark:focus:border-white;
   }
-  
+
   /* Minimal card styles */
   .card-minimal {
     @apply bg-white dark:bg-black border border-gray-200 dark:border-gray-800 p-4;

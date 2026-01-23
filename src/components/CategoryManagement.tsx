@@ -3,6 +3,7 @@ import { Plus, Trash2, X, AlertTriangle } from 'lucide-react';
 import type { Category } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface CategoryManagementProps {
@@ -102,34 +103,38 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
 
     setIsCreating(true);
     try {
-      const response = await fetch(`/api/categories?userId=${user.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: trimmedName
-        })
-      });
+      // Check if category already exists
+      const { data: existingCategory } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('name', trimmedName)
+        .single();
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          toast.error('Category already exists');
-        } else {
-          toast.error(result.error || 'Failed to create category');
-        }
+      if (existingCategory) {
+        toast.error('Category already exists');
         return;
+      }
+
+      // Create new category
+      const { error } = await supabase
+        .from('categories')
+        .insert({
+          name: trimmedName,
+          user_id: user.id
+        });
+
+      if (error) {
+        throw error;
       }
 
       toast.success('Category created successfully');
       setNewCategoryName('');
       setIsAddingCategory(false);
       onCategoryChange();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create category:', error);
-      toast.error('Failed to create category');
+      toast.error(error?.message || 'Failed to create category');
     } finally {
       setIsCreating(false);
     }
@@ -140,34 +145,36 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/categories?userId=${user.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: category.id,
-          name: category.name
-        })
-      });
+      // Check if category is in use by any websites
+      const { data: websitesUsingCategory, error: usageError } = await supabase
+        .from('websites')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('category', category.name)
+        .limit(1);
 
-      const result = await response.json();
+      if (usageError) throw usageError;
 
-      if (!response.ok) {
-        if (response.status === 409 && result.inUse) {
-          toast.error(`Cannot delete "${category.name}" - it is being used by websites`);
-        } else {
-          toast.error(result.error || 'Failed to delete category');
-        }
+      if (websitesUsingCategory && websitesUsingCategory.length > 0) {
+        toast.error(`Cannot delete "${category.name}" - it is being used by websites`);
         return;
       }
+
+      // Delete the category
+      const { error: deleteError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', category.id)
+        .eq('user_id', user.id);
+
+      if (deleteError) throw deleteError;
 
       toast.success('Category deleted successfully');
       setCategoryToDelete(null);
       onCategoryChange();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete category:', error);
-      toast.error('Failed to delete category');
+      toast.error(error?.message || 'Failed to delete category');
     } finally {
       setIsDeleting(false);
     }

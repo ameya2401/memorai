@@ -457,7 +457,7 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'
-        }`} style={{ fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+        }`}>
         <div className={`animate-spin rounded-full h-8 w-8 border-b ${isDarkMode ? 'border-[#e9e9e9]' : 'border-[#37352f]'
           }`}></div>
       </div>
@@ -466,7 +466,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className={`min-h-screen transition-all duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'
-      }`} style={{ fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      }`}>
       {/* Header */}
       <header className={`border-b transition-all duration-300 ${isDarkMode
         ? 'bg-black border-[#2e2e2e]'
@@ -498,13 +498,13 @@ const Dashboard: React.FC = () => {
               <div>
                 <h1 className={`text-xl font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
                   }`}>Memorai</h1>
-                <p className={`text-xs font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
+                <p className={`hidden md:block text-xs font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
                   }`}>A personal archive for curated web content</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className={`px-3 py-1.5 border rounded transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e] bg-[#191919]' : 'border-[#e9e9e9] bg-white'
+              <div className={`hidden lg:block px-3 py-1.5 border rounded transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e] bg-[#191919]' : 'border-[#e9e9e9] bg-white'
                 }`}>
                 <span className={`text-sm font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
                   }`}>
@@ -546,7 +546,7 @@ const Dashboard: React.FC = () => {
       <div className="max-w-[120rem] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
-          <div className="w-full lg:w-64 flex-shrink-0">
+          <div className="w-full lg:w-64 flex-shrink-0 lg:sticky lg:top-8 lg:self-start">
             <CategorySidebar
               categories={categories}
               selectedCategory={selectedCategory}
@@ -609,7 +609,8 @@ const Dashboard: React.FC = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {/* Search and Controls */}
-            <div className="mb-6 space-y-4">
+            <div className={`sticky top-0 z-20 backdrop-blur-md pt-4 pb-2 mb-6 space-y-4 transition-colors duration-300 border-b ${isDarkMode ? 'bg-black/80 border-[#2e2e2e]' : 'bg-white/80 border-[#e9e9e9]'
+              } -mx-2 px-2`}>
               <SearchBar
                 value={searchQuery}
                 onChange={setSearchQuery}
@@ -737,12 +738,18 @@ const Dashboard: React.FC = () => {
                 <Grid className={`h-12 w-12 mx-auto mb-6 transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'
                   }`} />
                 <h3 className={`text-2xl font-medium mb-3 transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
-                  }`}>No websites found</h3>
+                  }`}>
+                  {searchQuery ? 'No results found' : selectedCategory === 'Favorites' ? 'No starred websites' : 'No websites found'}
+                </h3>
                 <p className={`text-sm mb-8 font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
                   }`}>
-                  {searchQuery ? 'Try adjusting your search terms' : 'Start building your personal archive!'}
+                  {searchQuery
+                    ? 'Try adjusting your search terms'
+                    : selectedCategory === 'Favorites'
+                      ? 'Go star your important websites to see them here'
+                      : 'Start building your personal archive!'}
                 </p>
-                {!searchQuery && (
+                {!searchQuery && selectedCategory !== 'Favorites' && (
                   <button
                     onClick={() => setIsAddModalOpen(true)}
                     className={`border rounded-lg px-2 py-1.5 text-sm font-normal transition-all duration-150 ${isDarkMode
@@ -755,7 +762,7 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-8 animate-fade-in">
                 {/* Pinned Section */}
                 {pinnedWebsites.length > 0 && (
                   <div>

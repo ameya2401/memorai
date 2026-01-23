@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, FolderOpen, Hash, Settings, Clock, Bell, Star } from 'lucide-react';
+import { Folder, FolderOpen, Hash, Settings, Clock, Bell, Star, ChevronDown } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import type { Category } from '../types';
 import CategoryManagement from './CategoryManagement';
@@ -30,7 +30,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
     <div className={`rounded-lg transition-all duration-300 ${isDarkMode
       ? 'bg-[#191919] border border-[#2e2e2e]'
       : 'bg-white border border-[#e9e9e9]'
-      }`} style={{ fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      }`} >
       <div className="p-4">
         <h2 className={`font-medium text-sm mb-4 flex items-center gap-2.5 transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
           }`}>
@@ -99,12 +99,12 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
               )}
             </div>
             <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${selectedCategory === 'Recently Added'
-                ? isDarkMode
-                  ? 'text-[#e9e9e9] bg-[#3e3e3e]'
-                  : 'text-[#37352f] bg-[#e9e9e9]'
-                : isDarkMode
-                  ? 'text-[#787774]'
-                  : 'text-[#9b9a97]'
+              ? isDarkMode
+                ? 'text-[#e9e9e9] bg-[#3e3e3e]'
+                : 'text-[#37352f] bg-[#e9e9e9]'
+              : isDarkMode
+                ? 'text-[#787774]'
+                : 'text-[#9b9a97]'
               }`}>
               {recentlyAddedCount}
             </span>
@@ -172,7 +172,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
             <button
               key={category.id}
               onClick={() => onCategorySelect(category.name)}
-              className={`w-full text-left px-2 py-1.5 rounded transition-all duration-150 flex items-center justify-between text-sm ${selectedCategory === category.name
+              className={`w-full text-left px-2 py-1.5 rounded transition-all duration-150 flex items-center justify-between text-sm group relative ${selectedCategory === category.name
                 ? isDarkMode
                   ? 'bg-[#2e2e2e] text-[#e9e9e9]'
                   : 'bg-[#f1f1ef] text-[#37352f]'
@@ -181,6 +181,9 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
                   : 'text-[#787774] hover:bg-[#f1f1ef] hover:text-[#37352f]'
                 }`}
             >
+              {selectedCategory === category.name && (
+                <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-r bg-purple-500`}></div>
+              )}
               <div className="flex items-center gap-2">
                 {selectedCategory === category.name ? (
                   <FolderOpen className="h-3.5 w-3.5" />
@@ -230,9 +233,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
             </div>
             <div className={`transform transition-transform duration-200 ${showManagement ? 'rotate-180' : ''
               }`}>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown className="h-3.5 w-3.5" />
             </div>
           </button>
 

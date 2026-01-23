@@ -64,14 +64,16 @@ const Auth: React.FC = () => {
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'
       }`} style={{ fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div className={`border rounded-lg p-4 w-full max-w-md transition-colors duration-300 ${isDarkMode
-          ? 'bg-[#191919] border-[#2e2e2e]'
-          : 'bg-white border-[#e9e9e9]'
+        ? 'bg-[#191919] border-[#2e2e2e]'
+        : 'bg-white border-[#e9e9e9]'
         }`}>
         <div className="text-center mb-6">
-          <div className={`w-12 h-12 border rounded-lg flex items-center justify-center mx-auto mb-4 transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e] bg-[#2e2e2e]' : 'border-[#e9e9e9] bg-[#f1f1ef]'
-            }`}>
-            <LogIn className={`h-5 w-5 transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
-              }`} />
+          <div className="w-16 h-16 mx-auto mb-4">
+            <img
+              src="/logo.png"
+              alt="Memorai Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className={`text-xl font-medium mb-1 transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
             }`}>Memorai</h1>
@@ -84,8 +86,8 @@ const Auth: React.FC = () => {
             <button
               onClick={handleGoogleLogin}
               className={`w-full py-2 px-4 border rounded-lg font-medium text-sm transition-all duration-150 flex items-center justify-center gap-2 ${isDarkMode
-                  ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
-                  : 'bg-white text-[#37352f] border-[#e9e9e9] hover:bg-[#f1f1ef]'
+                ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
+                : 'bg-white text-[#37352f] border-[#e9e9e9] hover:bg-[#f1f1ef]'
                 }`}
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24">
@@ -140,8 +142,8 @@ const Auth: React.FC = () => {
                   required
                   placeholder="Enter 6-digit code"
                   className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm transition-all duration-300 focus:outline-none ${isDarkMode
-                      ? 'bg-[#191919] border-[#2e2e2e] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                      : 'bg-white border-[#e9e9e9] text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                    ? 'bg-[#191919] border-[#2e2e2e] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                    : 'bg-white border-[#e9e9e9] text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                     }`}
                 />
               </div>
@@ -155,8 +157,8 @@ const Auth: React.FC = () => {
               type="submit"
               disabled={loading}
               className={`w-full py-1.5 px-2 border rounded-lg font-normal text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isDarkMode
-                  ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
-                  : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
+                ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
+                : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
                 }`}
             >
               {loading ? (
@@ -196,8 +198,8 @@ const Auth: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm transition-all duration-300 focus:outline-none ${isDarkMode
-                      ? 'bg-[#191919] border-[#2e2e2e] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                      : 'bg-white border-[#e9e9e9] text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                    ? 'bg-[#191919] border-[#2e2e2e] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                    : 'bg-white border-[#e9e9e9] text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                     }`}
                   placeholder="Enter your email"
                 />
@@ -219,8 +221,8 @@ const Auth: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm transition-all duration-300 focus:outline-none ${isDarkMode
-                      ? 'bg-[#191919] border-[#2e2e2e] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                      : 'bg-white border-[#e9e9e9] text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                    ? 'bg-[#191919] border-[#2e2e2e] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                    : 'bg-white border-[#e9e9e9] text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                     }`}
                   placeholder="Enter your password"
                 />
@@ -231,8 +233,8 @@ const Auth: React.FC = () => {
               type="submit"
               disabled={loading}
               className={`w-full py-1.5 px-2 border rounded-lg font-normal text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isDarkMode
-                  ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
-                  : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
+                ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
+                : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
                 }`}
             >
               {loading ? (

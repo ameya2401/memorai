@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ExternalLink, Trash2, Globe, Copy, Star } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
+import { getCategoryColor } from '../lib/utils';
 import type { Website } from '../types';
 
 interface WebsiteCardProps {
@@ -16,7 +17,7 @@ interface WebsiteCardProps {
 const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, onView, onTogglePin }) => {
   const { isDarkMode } = useTheme();
 
-  const cardStyle = { fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" };
+
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -68,7 +69,6 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
           }`}
         onClick={handleView}
         tabIndex={0}
-        style={cardStyle}
       >
         {/* Desktop Layout */}
         <div className="hidden md:flex items-center justify-between">
@@ -102,8 +102,7 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
             </div>
 
             <div className="flex items-center gap-3 flex-shrink-0">
-              <span className={`px-1.5 py-0.5 text-xs font-medium rounded transition-colors duration-300 ${isDarkMode ? 'bg-[#3e3e3e] text-[#e9e9e9]' : 'bg-[#e9e9e9] text-[#37352f]'
-                }`}>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors duration-300 ${getCategoryColor(website.category)}`}>
                 {website.category}
               </span>
               <span className={`text-xs font-normal whitespace-nowrap transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
@@ -222,8 +221,7 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${isDarkMode ? 'bg-[#3e3e3e] text-[#e9e9e9]' : 'bg-[#e9e9e9] text-[#37352f]'
-              }`}>
+            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getCategoryColor(website.category)}`}>
               {website.category}
             </span>
             <span className={`font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
@@ -238,13 +236,12 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
 
   return (
     <div
-      className={`border rounded-lg transition-all duration-300 overflow-hidden group cursor-pointer focus:outline-none ${isDarkMode
+      className={`border rounded-lg transition-all duration-300 overflow-hidden group cursor-pointer focus:outline-none hover:-translate-y-1 hover:shadow-xl ${isDarkMode
         ? 'bg-[#191919] border-[#2e2e2e] hover:bg-[#2e2e2e]'
         : 'bg-white border-[#e9e9e9] hover:bg-[#f1f1ef]'
         }`}
       onClick={handleView}
       tabIndex={0}
-      style={cardStyle}
     >
       <div className="p-6">
         <div className="flex items-start justify-between mb-6">
@@ -265,10 +262,7 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
                   }`} />
               )}
             </div>
-            <span className={`px-1.5 py-0.5 text-xs font-medium rounded transition-colors duration-300 truncate max-w-[120px] ${isDarkMode ? 'bg-[#3e3e3e] text-[#e9e9e9]' : 'bg-[#e9e9e9] text-[#37352f]'
-              }`}>
-              {website.category}
-            </span>
+
           </div>
 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150 flex-shrink-0 ml-2">
