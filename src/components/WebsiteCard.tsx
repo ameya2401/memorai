@@ -222,7 +222,7 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
     >
       <div className="p-6">
         <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="flex-shrink-0">
               {website.favicon || getFaviconUrl(website.url) ? (
                 <img
@@ -239,13 +239,13 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
                   }`} />
               )}
             </div>
-            <span className={`px-1.5 py-0.5 text-xs font-medium rounded transition-colors duration-300 ${isDarkMode ? 'bg-[#3e3e3e] text-[#e9e9e9]' : 'bg-[#e9e9e9] text-[#37352f]'
+            <span className={`px-1.5 py-0.5 text-xs font-medium rounded transition-colors duration-300 truncate max-w-[120px] ${isDarkMode ? 'bg-[#3e3e3e] text-[#e9e9e9]' : 'bg-[#e9e9e9] text-[#37352f]'
               }`}>
               {website.category}
             </span>
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150 flex-shrink-0 ml-2">
             <button
               onClick={handleCopy}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode

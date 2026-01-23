@@ -33,12 +33,27 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [reminderMigrationExists, setReminderMigrationExists] = useState(true);
+
+  // Local state for immediate UI updates
+  const [currentWebsite, setCurrentWebsite] = useState(website);
+
+  // Local state for editing form
   const [editData, setEditData] = useState({
     title: website.title,
     category: website.category,
     description: website.description || '',
     newCategory: '',
   });
+
+  useEffect(() => {
+    setCurrentWebsite(website);
+    setEditData({
+      title: website.title,
+      category: website.category,
+      description: website.description || '',
+      newCategory: '',
+    });
+  }, [website]);
 
   useEffect(() => {
     // Check if reminder migration exists
@@ -69,7 +84,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
           description: editData.description.trim() || null,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', website.id)
+        .eq('id', currentWebsite.id)
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -87,9 +102,9 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
 
   const handleCancel = () => {
     setEditData({
-      title: website.title,
-      category: website.category,
-      description: website.description || '',
+      title: currentWebsite.title,
+      category: currentWebsite.category,
+      description: currentWebsite.description || '',
       newCategory: '',
     });
     setIsEditing(false);
@@ -104,19 +119,36 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
     }
 
     try {
-      console.log('Toggling reminders for website:', website.id);
+      console.log('Toggling reminders for website:', currentWebsite.id);
+
+      // Optimistic update
+      const newReminderStatus = !currentWebsite.reminder_dismissed;
+      const newLastRemindedAt = newReminderStatus ? null : new Date().toISOString();
+
+      setCurrentWebsite(prev => ({
+        ...prev,
+        reminder_dismissed: newReminderStatus,
+        last_reminded_at: newLastRemindedAt
+      }));
 
       const { data, error } = await supabase
         .from('websites')
         .update({
-          reminder_dismissed: !website.reminder_dismissed,
-          last_reminded_at: website.reminder_dismissed ? null : new Date().toISOString(),
+          reminder_dismissed: newReminderStatus,
+          last_reminded_at: newLastRemindedAt,
         })
-        .eq('id', website.id)
+        .eq('id', currentWebsite.id)
         .eq('user_id', user.id)
         .select();
 
       if (error) {
+        // Revert on error
+        setCurrentWebsite(prev => ({
+          ...prev,
+          reminder_dismissed: !newReminderStatus,
+          last_reminded_at: !newReminderStatus ? null : new Date().toISOString()
+        }));
+
         console.error('Supabase error toggling reminders:', error);
 
         // Check if the columns don't exist
@@ -132,9 +164,9 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
       console.log('Database update result:', data);
 
       toast.success(
-        website.reminder_dismissed
-          ? 'Reminders enabled for this website'
-          : 'Reminders disabled for this website'
+        newReminderStatus
+          ? 'Reminders disabled for this website'
+          : 'Reminders enabled for this website'
       );
       onUpdate();
     } catch (error: any) {
@@ -164,9 +196,9 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
         <div className={`flex items-center justify-between p-4 border-b transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e]' : 'border-[#e9e9e9]'
           }`}>
           <div className="flex items-center gap-2">
-            {website.favicon || getFaviconUrl(website.url) ? (
+            {currentWebsite.favicon || getFaviconUrl(currentWebsite.url) ? (
               <img
-                src={website.favicon || getFaviconUrl(website.url)!}
+                src={currentWebsite.favicon || getFaviconUrl(currentWebsite.url)!}
                 alt=""
                 className="w-6 h-6 rounded"
                 onError={(e) => {
@@ -230,7 +262,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
               />
             ) : (
               <p className={`text-sm font-medium transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
-                }`}>{website.title}</p>
+                }`}>{currentWebsite.title}</p>
             )}
           </div>
 
@@ -240,9 +272,9 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
               }`}>URL</label>
             <div className="flex items-center gap-2">
               <p className={`flex-1 break-all text-sm font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
-                }`}>{website.url}</p>
+                }`}>{currentWebsite.url}</p>
               <a
-                href={website.url}
+                href={currentWebsite.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`p-2 rounded transition-all duration-150 ${isDarkMode
@@ -298,7 +330,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                 ? 'bg-[#3e3e3e] text-[#e9e9e9]'
                 : 'bg-[#e9e9e9] text-[#37352f]'
                 }`}>
-                {website.category}
+                {currentWebsite.category}
               </span>
             )}
           </div>
@@ -321,7 +353,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             ) : (
               <p className={`text-sm font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
                 }`}>
-                {website.description || (
+                {currentWebsite.description || (
                   <span className={`italic transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'
                     }`}>No description added</span>
                 )}
@@ -337,12 +369,12 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                 }`}>
                 <Calendar className="h-3.5 w-3.5" />
                 <span>
-                  Added {formatDistanceToNow(new Date(website.created_at), { addSuffix: true })}
+                  Added {formatDistanceToNow(new Date(currentWebsite.created_at), { addSuffix: true })}
                 </span>
               </div>
               <div className={`font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
                 }`}>
-                {format(new Date(website.created_at), 'MMM d, yyyy \'at\' h:mm a')}
+                {format(new Date(currentWebsite.created_at), 'MMM d, yyyy \'at\' h:mm a')}
               </div>
             </div>
 
@@ -352,7 +384,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                 }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {website.reminder_dismissed ? (
+                    {currentWebsite.reminder_dismissed ? (
                       <BellOff className={`h-4 w-4 transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'
                         }`} />
                     ) : (
@@ -360,12 +392,12 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                     )}
                     <span className={`text-sm font-medium transition-colors duration-300 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
                       }`}>
-                      {website.reminder_dismissed ? 'Reminders Disabled' : 'Reminders Enabled'}
+                      {currentWebsite.reminder_dismissed ? 'Reminders Disabled' : 'Reminders Enabled'}
                     </span>
                   </div>
                   <button
                     onClick={handleToggleReminders}
-                    className={`text-xs px-3 py-1 rounded-full transition-colors ${website.reminder_dismissed
+                    className={`text-xs px-3 py-1 rounded-full transition-colors ${currentWebsite.reminder_dismissed
                       ? isDarkMode
                         ? 'bg-green-600 text-white hover:bg-green-500'
                         : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -374,109 +406,109 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
                         : 'bg-red-100 text-red-700 hover:bg-red-200'
                       }`}
                   >
-                    {website.reminder_dismissed ? 'Enable' : 'Disable'}
+                    {currentWebsite.reminder_dismissed ? 'Enable' : 'Disable'}
                   </button>
                 </div>
-                {!website.reminder_dismissed && (
+                {!currentWebsite.reminder_dismissed && (
                   <p className={`text-xs mt-1 transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                    {differenceInDays(new Date(), new Date(website.created_at)) >= 3
+                    {differenceInDays(new Date(), new Date(currentWebsite.created_at)) >= 3
                       ? 'This website is eligible for reminders'
-                      : `Reminders will start in ${3 - differenceInDays(new Date(), new Date(website.created_at))} day(s)`
+                      : `Reminders will start in ${3 - differenceInDays(new Date(), new Date(currentWebsite.created_at))} day(s)`
                     }
                   </p>
                 )}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Related Websites Section */}
-        {allWebsites.length > 1 && (() => {
-          const relatedWebsites = findRelatedWebsites(website, allWebsites, 4);
-          if (relatedWebsites.length === 0) return null;
+          {/* Related Websites Section */}
+          {allWebsites.length > 1 && (() => {
+            const relatedWebsites = findRelatedWebsites(currentWebsite, allWebsites, 4);
+            if (relatedWebsites.length === 0) return null;
 
-          return (
-            <div className={`p-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e]' : 'border-[#e9e9e9]'}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <Link2 className={`h-4 w-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`} />
-                <h3 className={`text-sm font-medium ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>
-                  Related to this item
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {relatedWebsites.map((relatedSite) => (
-                  <button
-                    key={relatedSite.id}
-                    onClick={() => onViewRelated?.(relatedSite)}
-                    className={`text-left p-3 rounded-lg border transition-all duration-150 hover:scale-[1.02] ${isDarkMode
-                      ? 'border-[#2e2e2e] bg-[#191919] hover:bg-[#2e2e2e] hover:border-[#3e3e3e]'
-                      : 'border-[#e9e9e9] bg-[#f7f6f3] hover:bg-[#f1f1ef] hover:border-[#c9c9c9]'
-                      }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="flex-shrink-0 mt-0.5">
-                        {relatedSite.favicon ? (
-                          <img src={relatedSite.favicon} alt="" className="w-4 h-4 rounded" />
-                        ) : (
-                          <Globe className={`w-4 h-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`} />
-                        )}
+            return (
+              <div className={`p-4 border-t transition-colors duration-300 ${isDarkMode ? 'border-[#2e2e2e]' : 'border-[#e9e9e9]'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Link2 className={`h-4 w-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`} />
+                  <h3 className={`text-sm font-medium ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>
+                    Related to this item
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {relatedWebsites.map((relatedSite) => (
+                    <button
+                      key={relatedSite.id}
+                      onClick={() => onViewRelated?.(relatedSite)}
+                      className={`text-left p-3 rounded-lg border transition-all duration-150 hover:scale-[1.02] ${isDarkMode
+                        ? 'border-[#2e2e2e] bg-[#191919] hover:bg-[#2e2e2e] hover:border-[#3e3e3e]'
+                        : 'border-[#e9e9e9] bg-[#f7f6f3] hover:bg-[#f1f1ef] hover:border-[#c9c9c9]'
+                        }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 mt-0.5">
+                          {relatedSite.favicon ? (
+                            <img src={relatedSite.favicon} alt="" className="w-4 h-4 rounded" />
+                          ) : (
+                            <Globe className={`w-4 h-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`} />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-xs font-medium truncate ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>
+                            {relatedSite.title}
+                          </p>
+                          <p className={`text-xs truncate mt-0.5 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`}>
+                            {relatedSite.category}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-xs font-medium truncate ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'}`}>
-                          {relatedSite.title}
-                        </p>
-                        <p className={`text-xs truncate mt-0.5 ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`}>
-                          {relatedSite.category}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
+            );
+          })()}
+
+          {/* Footer */}
+          {isEditing && (
+            <div className={`flex items-center justify-end gap-2 p-4 border-t transition-colors duration-300 ${isDarkMode
+              ? 'border-[#2e2e2e] bg-[#191919]'
+              : 'border-[#e9e9e9] bg-white'
+              }`}>
+              <button
+                onClick={handleCancel}
+                disabled={isSaving}
+                className={`px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 ${isDarkMode
+                  ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                  : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                  }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving || !editData.title.trim() || (editData.category === '__create_new__' && !editData.newCategory.trim())}
+                className={`px-2 py-1.5 rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 flex items-center gap-2 ${isDarkMode
+                  ? 'bg-[#2e2e2e] text-[#e9e9e9] hover:bg-[#3e3e3e]'
+                  : 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e9e9e9]'
+                  }`}
+              >
+                {isSaving ? (
+                  <>
+                    <div className={`w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin ${isDarkMode ? 'border-[#e9e9e9]' : 'border-[#37352f]'
+                      }`} />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5" />
+                    Save Changes
+                  </>
+                )}
+              </button>
             </div>
-          );
-        })()}
-
-        {/* Footer */}
-        {isEditing && (
-          <div className={`flex items-center justify-end gap-2 p-4 border-t transition-colors duration-300 ${isDarkMode
-            ? 'border-[#2e2e2e] bg-[#191919]'
-            : 'border-[#e9e9e9] bg-white'
-            }`}>
-            <button
-              onClick={handleCancel}
-              disabled={isSaving}
-              className={`px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 ${isDarkMode
-                ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
-                }`}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving || !editData.title.trim() || (editData.category === '__create_new__' && !editData.newCategory.trim())}
-              className={`px-2 py-1.5 rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 flex items-center gap-2 ${isDarkMode
-                ? 'bg-[#2e2e2e] text-[#e9e9e9] hover:bg-[#3e3e3e]'
-                : 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e9e9e9]'
-                }`}
-            >
-              {isSaving ? (
-                <>
-                  <div className={`w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin ${isDarkMode ? 'border-[#e9e9e9]' : 'border-[#37352f]'
-                    }`} />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
