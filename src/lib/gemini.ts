@@ -63,15 +63,19 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
           }
 
           const genAI = new GoogleGenerativeAI(apiKey);
-          // Try multiple model names in order of preference (updated for 2025/2026)
-          // gemini-1.5-flash was retired in September 2025, using newer models
-          // Note: We don't do test requests to conserve API quota (free tier: 5 req/min)
-          const modelNames = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+          // Try multiple model names in order of preference
+          const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash'];
 
-          // Just use the first model directly without testing
-          const selectedModelName = modelNames[0];
-          console.log(`[AI Search] Using model: ${selectedModelName}`);
-          const model = genAI.getGenerativeModel({ model: selectedModelName });
+          let model;
+          for (const name of modelNames) {
+            try {
+              model = genAI.getGenerativeModel({ model: name });
+              break;
+            } catch (e) {
+              // ignore
+            }
+          }
+          if (!model) model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
           const prompt = `You are a STRICT search engine for a personal website bookmarks app. Given a user's search query and a list of their saved websites, return ONLY the IDs of websites that are GENUINELY relevant.
 
@@ -131,21 +135,9 @@ Response format (JSON array of IDs only): ["id1", "id2"]`;
             console.log('[AI Search] Rate limit exceeded, falling back to text search');
             return textSearch(query, websites);
           }
-
-          // Provide more helpful error messages for other errors
-          let errorMessage = 'Client-side AI search failed';
-          if (clientError.message?.includes('API_KEY')) {
-            errorMessage = 'Invalid or missing Gemini API key';
-          } else if (clientError.message?.includes('404')) {
-            errorMessage = 'Gemini model not found or not available';
-          } else if (clientError.message?.includes('403')) {
-            errorMessage = 'Gemini API access denied - check your API key permissions';
-          }
-
-          throw new Error(`${errorMessage}: ${clientError.message}`);
+          throw clientError;
         }
       } else {
-        // No client-side API key, just use text search silently
         console.log('[AI Search] No client-side API key, using text search');
         return textSearch(query, websites);
       }
@@ -155,18 +147,15 @@ Response format (JSON array of IDs only): ["id1", "id2"]`;
     console.log('[AI Search] Falling back to text search');
     return textSearch(query, websites);
   } catch (error: any) {
-    // For rate limit errors anywhere, silently fall back to text search
     if (error.message?.includes('429') || error.message?.includes('rate limit')) {
-      console.log('[AI Search] Rate limit hit, using text search instead');
       return textSearch(query, websites);
     }
     console.error('[AI Search] All methods failed:', error);
-    throw error; // Re-throw to let Dashboard handle it
+    throw error;
   }
 };
 
 // Re-export smartSearch for fallback text search
-// This provides fuzzy matching capabilities when AI search fails
 import { smartSearch } from './smartSearch';
 
 // Simple wrapper to maintain backward compatibility

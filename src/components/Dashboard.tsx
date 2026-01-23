@@ -36,7 +36,12 @@ const Dashboard: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [searchSuggestion, setSearchSuggestion] = useState<string | null>(null);
   const [isAIModeEnabled, setIsAIModeEnabled] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const observerTarget = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ITEMS_PER_PAGE = 24;
 
   // Build vocabulary for spelling suggestions (memoized)
   const vocabulary = useMemo(() => buildVocabulary(websites), [websites]);
@@ -131,7 +136,56 @@ const Dashboard: React.FC = () => {
       // If data not loaded yet, just set filtered to current websites
       setFilteredWebsites(websites);
     }
+    // Reset visible count when filters change
+    setVisibleCount(ITEMS_PER_PAGE);
   }, [websites, selectedCategory, activeSearchQuery, dataLoaded]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && !isLoadingMore && visibleCount < filteredWebsites.length) {
+          setIsLoadingMore(true);
+
+          // Generate cheeky message based on selected category or content
+          const messages = [
+            "Digging up more digital gold...",
+            "Summoning more links from the void...",
+            "Loading your second brain...",
+            "Fetching more brilliance...",
+            "Scrolling down memory lane...",
+          ];
+
+          if (selectedCategory === 'Development') {
+            messages.push("Compiling more code snippets...", "Debugging the infinite scroll...");
+          } else if (selectedCategory === 'Design') {
+            messages.push("Rendering more pixel perfection...", "Aligning grids...");
+          } else if (selectedCategory === 'Research') {
+            messages.push(" citing more sources...", "Peer reviewing your bookmarks...");
+          }
+
+          setLoadingMessage(messages[Math.floor(Math.random() * messages.length)]);
+
+          // Artificial delay to make it feel substantial
+          setTimeout(() => {
+            setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+            setIsLoadingMore(false);
+          }, 800);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [filteredWebsites.length, visibleCount, isLoadingMore, selectedCategory]);
 
   const fetchWebsites = async () => {
     try {
@@ -637,7 +691,7 @@ const Dashboard: React.FC = () => {
                   ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
                   : 'space-y-4 overflow-hidden'
               }>
-                {filteredWebsites.map((website) => (
+                {filteredWebsites.slice(0, visibleCount).map((website) => (
                   <WebsiteCard
                     key={website.id}
                     website={website}
@@ -646,6 +700,25 @@ const Dashboard: React.FC = () => {
                     onView={handleViewWebsite}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* Infinite Scroll Trigger & Loader */}
+            {filteredWebsites.length > 0 && !loading && (
+              <div
+                ref={observerTarget}
+                className="h-24 flex flex-col gap-3 items-center justify-center p-4 transition-opacity duration-300"
+                style={{ opacity: visibleCount < filteredWebsites.length ? 1 : 0 }}
+              >
+                {visibleCount < filteredWebsites.length && (
+                  <>
+                    <div className={`animate-spin rounded-full h-5 w-5 border-2 border-t-transparent ${isDarkMode ? 'border-[#e9e9e9]' : 'border-[#37352f]'
+                      }`}></div>
+                    <span className={`text-xs font-medium italic animate-pulse ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
+                      {loadingMessage}
+                    </span>
+                  </>
+                )}
               </div>
             )}
           </div>
