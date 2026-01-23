@@ -202,7 +202,7 @@ const Dashboard: React.FC = () => {
       setWebsites(data || []);
 
       // Fetch categories from dedicated categories table
-      await fetchCategories();
+      await fetchCategories(data || []);
 
       // Mark data as loaded
       setDataLoaded(true);
@@ -215,17 +215,32 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (currentWebsites?: Website[]) => {
     if (!user) return;
 
+    // Use provided websites or fall back to state (though state might be stale if called during render cycle, usually passed from fetchWebsites)
+    const siteList = currentWebsites || websites;
+
     try {
-      const response = await fetch(`/api/categories?userId=${user.id}`);
-      if (response.ok) {
-        const result = await response.json();
-        setCategories(result.categories || []);
-      } else {
-        console.error('Failed to fetch categories');
-      }
+      const { data: categoriesData, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) throw error;
+
+      // Calculate counts based on current websites
+      const categoriesWithCounts = (categoriesData || []).map((cat: any) => {
+        const count = siteList.filter(w => w.category === cat.name).length;
+        return {
+          id: cat.id,
+          name: cat.name,
+          count
+        };
+      });
+
+      setCategories(categoriesWithCounts);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
