@@ -497,32 +497,41 @@ const Dashboard: React.FC = () => {
         <div className="max-w-[120rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
-              <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded">
-                <img
-                  src="/logo.png"
-                  alt="Memorai Logo"
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback to text if image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && !parent.querySelector('.fallback-text')) {
-                      const fallback = document.createElement('span');
-                      fallback.className = `font-light text-sm fallback-text ${isDarkMode ? 'text-white' : 'text-black'
-                        }`;
-                      fallback.textContent = 'AB';
-                      parent.appendChild(fallback);
-                    }
-                  }}
-                />
-              </div>
-              <div>
-                <h1 className={`text-xl font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
-                  }`}>Memorai</h1>
-                <p className={`hidden md:block text-xs font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
-                  }`}>A personal archive for curated web content</p>
-              </div>
+              <button
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setSearchQuery('');
+                  setViewMode('grid');
+                }}
+                className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
+              >
+                <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded">
+                  <img
+                    src="/logo.png"
+                    alt="Memorai Logo"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      // Fallback to text if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent && !parent.querySelector('.fallback-text')) {
+                        const fallback = document.createElement('span');
+                        fallback.className = `font-light text-sm fallback-text ${isDarkMode ? 'text-white' : 'text-black'
+                          }`;
+                        fallback.textContent = 'AB';
+                        parent.appendChild(fallback);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="text-left">
+                  <h1 className={`text-xl font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#e9e9e9]' : 'text-[#37352f]'
+                    }`}>Memorai</h1>
+                  <p className={`hidden md:block text-xs font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
+                    }`}>A personal archive for curated web content</p>
+                </div>
+              </button>
             </div>
 
             <div className="flex items-center gap-4">
@@ -820,8 +829,8 @@ const Dashboard: React.FC = () => {
                       Other Websites ({nonMatchingWebsites.length})
                     </h3>
                     <div className={`${viewMode === 'grid'
-                        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
-                        : 'space-y-4 overflow-hidden'
+                      ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                      : 'space-y-4 overflow-hidden'
                       } opacity-50`}>
                       {nonMatchingWebsites.slice(0, 12).map((website) => (
                         <WebsiteCard

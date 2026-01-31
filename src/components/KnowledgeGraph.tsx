@@ -28,6 +28,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
     const fgRef = useRef<any>();
     const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
     const containerRef = useRef<HTMLDivElement>(null);
+    const [isReady, setIsReady] = useState(false);
 
     // Colors for categories
     const categoryColors: Record<string, string> = {
@@ -103,8 +104,26 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
         window.addEventListener('resize', updateDimensions);
         updateDimensions();
 
-        return () => window.removeEventListener('resize', updateDimensions);
+        // Delay setting ready to ensure container is measured
+        const timer = setTimeout(() => setIsReady(true), 100);
+
+        return () => {
+            window.removeEventListener('resize', updateDimensions);
+            clearTimeout(timer);
+        };
     }, []);
+
+    // Handle empty state
+    if (websites.length === 0) {
+        return (
+            <div className={`flex items-center justify-center w-full h-full min-h-[500px] border rounded-lg ${isDarkMode ? 'bg-[#121212] border-[#2e2e2e] text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                <div className="text-center">
+                    <p className="text-lg font-medium mb-2">No websites to display</p>
+                    <p className="text-sm opacity-70">Add some websites to see the knowledge graph</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleZoomIn = () => {
         fgRef.current?.zoom(fgRef.current.zoom() * 1.2, 400);
@@ -126,32 +145,33 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
             }}
             ref={containerRef}
         >
-            <ForceGraph2D
-                ref={fgRef}
-                width={containerDimensions.width}
-                height={containerDimensions.height}
-                graphData={graphData}
-                nodeLabel="name"
-                backgroundColor={isDarkMode ? '#121212' : '#f9fafb'}
-                nodeColor="color"
-                linkColor={() => isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                nodeRelSize={4}
-                onNodeClick={(node: any) => {
-                    if (node.type === 'website' && node.data) {
-                        onNodeClick(node.data);
-                    } else if (node.type === 'category') {
-                        // Maybe gather all children or zoom to cluster?
-                        fgRef.current?.centerAt(node.x, node.y, 1000);
-                        fgRef.current?.zoom(2.5, 1000);
-                    }
-                }}
-                cooldownTicks={100}
-                onEngineStop={() => fgRef.current?.zoomToFit(400)}
-                particles={isDarkMode ? graphData.links : []}
-                linkDirectionalParticles={isDarkMode ? 2 : 0}
-                linkDirectionalParticleWidth={2}
-                linkDirectionalParticleSpeed={0.005}
-            />
+            {isReady && containerDimensions.width > 0 && (
+                <ForceGraph2D
+                    ref={fgRef}
+                    width={containerDimensions.width}
+                    height={containerDimensions.height}
+                    graphData={graphData}
+                    nodeLabel="name"
+                    backgroundColor={isDarkMode ? '#121212' : '#f9fafb'}
+                    nodeColor="color"
+                    linkColor={() => isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
+                    nodeRelSize={4}
+                    onNodeClick={(node: any) => {
+                        if (node.type === 'website' && node.data) {
+                            onNodeClick(node.data);
+                        } else if (node.type === 'category') {
+                            // Maybe gather all children or zoom to cluster?
+                            fgRef.current?.centerAt(node.x, node.y, 1000);
+                            fgRef.current?.zoom(2.5, 1000);
+                        }
+                    }}
+                    cooldownTicks={100}
+                    onEngineStop={() => fgRef.current?.zoomToFit(400)}
+                    linkDirectionalParticles={isDarkMode ? 2 : 0}
+                    linkDirectionalParticleWidth={2}
+                    linkDirectionalParticleSpeed={0.005}
+                />
+            )}
 
             {/* Controls */}
             <div className="absolute bottom-4 right-4 flex flex-col gap-2">
