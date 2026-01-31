@@ -27,30 +27,30 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
   // Get all pending reminders
   const getPendingReminders = (): Website[] => {
     if (!migrationExists) return [];
-    
+
     const now = new Date();
-    
+
     return websites.filter(website => {
       // Skip if reminders are dismissed for this website
       if (website.reminder_dismissed) return false;
-      
+
       const createdAt = new Date(website.created_at);
       const daysSinceCreated = differenceInDays(now, createdAt);
-      
+
       // Only show reminders for websites older than the interval
       if (daysSinceCreated < REMINDER_INTERVAL_DAYS) return false;
-      
+
       // Check if we've shown a reminder recently
       if (website.last_reminded_at) {
         const lastReminded = new Date(website.last_reminded_at);
         const daysSinceLastReminder = differenceInDays(now, lastReminded);
-        
+
         // Don't show again if within cooldown period
         if (daysSinceLastReminder < REMINDER_COOLDOWN_DAYS) return false;
       }
-      
+
       return true;
-    }).sort((a, b) => 
+    }).sort((a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
   };
@@ -62,22 +62,23 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
 
     // Check migration first, then check for reminders
     checkMigrationAndReminders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [websites, userId]);
 
   const checkMigrationAndReminders = async () => {
     if (!userId) return;
-    
+
     if (!migrationChecked) {
       const migrationOk = await checkReminderMigration(userId);
       setMigrationExists(migrationOk);
       setMigrationChecked(true);
-      
+
       if (!migrationOk) {
         console.warn(showMigrationWarning());
         return; // Don't check for reminders if migration is missing
       }
     }
-    
+
     if (migrationExists) {
       checkForReminders();
     }
@@ -94,23 +95,23 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
       toast.error('Reminder feature requires database migration. Please contact support.');
       throw new Error('Migration not applied');
     }
-    
+
     try {
       console.log('Updating reminder timestamp for website:', websiteId);
-      
+
       // Use direct Supabase update since we have the client available
       const { data, error } = await supabase
         .from('websites')
-        .update({ 
+        .update({
           last_reminded_at: new Date().toISOString()
         })
         .eq('id', websiteId)
         .eq('user_id', userId)
         .select();
-        
+
       if (error) {
         console.error('Supabase error updating reminder:', error);
-        
+
         // Check if the column doesn't exist
         if (error.message.includes('column "last_reminded_at" of relation "websites" does not exist')) {
           console.warn('Reminder columns not found. Migration may not be applied yet.');
@@ -120,14 +121,14 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
         }
         throw error;
       }
-      
+
       console.log('Database update result:', data);
-      
+
       // Refresh the website data
       if (onDataUpdate) {
         onDataUpdate();
       }
-      
+
       console.log('Reminder timestamp updated successfully');
     } catch (error) {
       console.error('Failed to update reminder timestamp:', error);
@@ -140,27 +141,27 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
       toast.error('Reminder feature requires database migration. Please contact support.');
       throw new Error('Migration not applied');
     }
-    
+
     try {
       console.log('Dismissing reminder for website:', websiteId);
-      
+
       // Use direct Supabase update since we have the client available
       const { data, error } = await supabase
         .from('websites')
-        .update({ 
+        .update({
           reminder_dismissed: true,
           last_reminded_at: new Date().toISOString()
         })
         .eq('id', websiteId)
         .eq('user_id', userId)
         .select();
-        
+
       if (error) {
         console.error('Supabase error dismissing reminder:', error);
-        
+
         // Check if the columns don't exist
         if (error.message.includes('column "reminder_dismissed" of relation "websites" does not exist') ||
-            error.message.includes('column "last_reminded_at" of relation "websites" does not exist')) {
+          error.message.includes('column "last_reminded_at" of relation "websites" does not exist')) {
           console.warn('Reminder columns not found. Migration may not be applied yet.');
           toast.error('Reminder feature not yet available. Please contact support.');
         } else {
@@ -168,14 +169,14 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
         }
         throw error;
       }
-      
+
       console.log('Database update result:', data);
-      
+
       // Refresh the website data
       if (onDataUpdate) {
         onDataUpdate();
       }
-      
+
       console.log('Reminder dismissed successfully');
     } catch (error) {
       console.error('Failed to dismiss reminder:', error);
@@ -188,10 +189,10 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
       try {
         // Open website in new tab
         window.open(reminderWebsite.url, '_blank');
-        
+
         // Update reminder timestamp
         await updateReminderTimestamp(reminderWebsite.id);
-        
+
         // Small delay to ensure database update completes
         setTimeout(() => {
           setShowReminder(false);
@@ -211,7 +212,7 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
       try {
         // Update reminder timestamp so it won't show again for a while
         await updateReminderTimestamp(reminderWebsite.id);
-        
+
         // Small delay to ensure database update completes
         setTimeout(() => {
           setShowReminder(false);
@@ -231,7 +232,7 @@ export const useReminders = (websites: Website[], userId: string | undefined, on
       try {
         // Permanently dismiss reminders for this website
         await dismissReminder(reminderWebsite.id);
-        
+
         // Small delay to ensure database update completes
         setTimeout(() => {
           setShowReminder(false);

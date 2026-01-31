@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase';
 export const checkReminderMigration = async (userId: string): Promise<boolean> => {
   try {
     console.log('Checking if reminder columns exist...');
-    
+
     // Try to select the reminder columns from a user's website (if any exist)
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('websites')
       .select('id, last_reminded_at, reminder_dismissed')
       .eq('user_id', userId)
@@ -13,14 +13,14 @@ export const checkReminderMigration = async (userId: string): Promise<boolean> =
 
     if (error) {
       console.error('Migration check failed:', error);
-      
+
       // Check if the specific error is about missing columns
-      if (error.message.includes('column \"reminder_dismissed\" of relation \"websites\" does not exist') ||
-          error.message.includes('column \"last_reminded_at\" of relation \"websites\" does not exist')) {
+      if (error.message.includes('column "reminder_dismissed" of relation "websites" does not exist') ||
+        error.message.includes('column "last_reminded_at" of relation "websites" does not exist')) {
         console.warn('Reminder columns not found - migration not applied');
         return false;
       }
-      
+
       // Other errors might not be related to missing columns
       console.warn('Other database error, assuming migration exists:', error.message);
       return true;
@@ -46,7 +46,7 @@ To enable reminders:
 
 Migration file: supabase/migrations/20250907000000_add_reminder_fields.sql
   `.trim();
-  
+
   console.warn(message);
   return message;
 };

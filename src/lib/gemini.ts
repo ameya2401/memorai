@@ -95,8 +95,9 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
         console.error('[AI Search] Server response error:', res.status, errorData);
         throw new Error(errorData.error || `Server returned ${res.status}`);
       }
-    } catch (serverError: any) {
-      console.warn('[AI Search] Server endpoint failed, trying client-side fallback:', serverError.message);
+    } catch (serverError: unknown) {
+      const serverErrorMessage = serverError instanceof Error ? serverError.message : 'Unknown error';
+      console.warn('[AI Search] Server endpoint failed, trying client-side fallback:', serverErrorMessage);
 
       // If API route fails, try client-side key if present
       if (import.meta.env.VITE_GEMINI_API_KEY) {
@@ -117,7 +118,7 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
             try {
               model = genAI.getGenerativeModel({ model: name });
               break;
-            } catch (e) {
+            } catch {
               // ignore
             }
           }
@@ -210,11 +211,12 @@ Respond with JSON: {"ids": ["id1","id2"]}. No extra text.`;
             console.log('[AI Search] Parse failed, using text search fallback');
             return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
           }
-        } catch (clientError: any) {
-          console.error('[AI Search] Client-side API failed:', clientError.message);
+        } catch (clientError: unknown) {
+          const clientErrorMessage = clientError instanceof Error ? clientError.message : 'Unknown error';
+          console.error('[AI Search] Client-side API failed:', clientErrorMessage);
 
           // For rate limit errors, silently fall back to text search instead of showing error
-          if (clientError.message?.includes('429')) {
+          if (clientErrorMessage?.includes('429')) {
             console.log('[AI Search] Rate limit exceeded, falling back to text search');
             return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
           }
@@ -229,8 +231,9 @@ Respond with JSON: {"ids": ["id1","id2"]}. No extra text.`;
     // Fallback to text search
     console.log('[AI Search] Falling back to text search');
     return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
-  } catch (error: any) {
-    if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage?.includes('429') || errorMessage?.includes('rate limit')) {
       return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
     }
     console.error('[AI Search] All methods failed:', error);

@@ -131,20 +131,6 @@ function extractWords(text: string): string[] {
 }
 
 /**
- * Extract all substrings of length >= minLen for aggressive matching
- */
-function extractSubstrings(text: string, minLen: number = 3): string[] {
-    const normalized = text.toLowerCase().replace(/[^\w]/g, '');
-    const substrings: string[] = [];
-    for (let i = 0; i <= normalized.length - minLen; i++) {
-        for (let len = minLen; len <= Math.min(normalized.length - i, 12); len++) {
-            substrings.push(normalized.slice(i, i + len));
-        }
-    }
-    return substrings;
-}
-
-/**
  * Simple word stemmer - removes common suffixes
  */
 function stemWord(word: string): string {
@@ -167,18 +153,6 @@ function generateAcronym(text: string): string {
         .map(w => w[0])
         .join('')
         .toLowerCase();
-}
-
-/**
- * Generate n-grams from a word for partial matching
- */
-function generateNgrams(word: string, n: number = 2): string[] {
-    if (word.length < n) return [word];
-    const ngrams: string[] = [];
-    for (let i = 0; i <= word.length - n; i++) {
-        ngrams.push(word.slice(i, i + n));
-    }
-    return ngrams;
 }
 
 /**
@@ -398,7 +372,7 @@ function calculateScore(query: string, website: Website): ScoredWebsite {
     const categoryLower = category.toLowerCase();
 
     const url = (website.url || '').toLowerCase().replace(/https?:\/\/(www\.)?/g, '');
-    const urlParts = url.split(/[\/\.\-_?&#=]/).filter(p => p.length > 1);
+    const urlParts = url.split(/[/._?&#=-]/).filter(p => p.length > 1);
 
     // === FULL QUERY MATCHING ===
 
@@ -542,10 +516,8 @@ export function smartSearch(
         };
     }
 
-    const queryLower = trimmedQuery.toLowerCase();
-
     // Calculate scores for all websites - STRICT filtering
-    let scoredWebsites: ScoredWebsite[] = websites
+    const scoredWebsites: ScoredWebsite[] = websites
         .map(website => calculateScore(trimmedQuery, website))
         .filter(sw => sw.score >= MIN_SCORE_THRESHOLD)  // Only include websites above threshold
         .sort((a, b) => b.score - a.score);  // Sort by score descending
@@ -602,7 +574,7 @@ export function quickSearch(query: string, websites: Website[]): Website[] {
         if (searchable.includes(trimmedQuery)) return true;
 
         // Check if any word starts with query
-        const words = searchable.split(/[\s\-_\/\.]+/);
+        const words = searchable.split(/[\s\-_/.]+/);
         if (words.some(word => word.startsWith(trimmedQuery))) return true;
 
         // Check acronym match for short queries
