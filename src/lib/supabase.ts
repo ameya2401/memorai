@@ -41,7 +41,12 @@ export const verifyOtp = async (email: string, token: string, type: 'signup' | '
 };
 
 export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: 'global' });
+  // If error is "Auth session missing", the user is already signed out
+  // so we can treat this as a successful sign out
+  if (error?.message?.includes('session missing')) {
+    return { error: null };
+  }
   return { error };
 };
 

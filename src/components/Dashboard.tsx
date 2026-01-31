@@ -16,11 +16,10 @@ import RemindersPanel from './RemindersPanel';
 import KnowledgeGraph from './KnowledgeGraph';
 import ThemeToggle from './ThemeToggle';
 import { LogOut, Plus, Grid, List, Download, Network, Star } from 'lucide-react';
-import { signOut } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { isDarkMode } = useTheme();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [filteredWebsites, setFilteredWebsites] = useState<Website[]>([]);
@@ -123,7 +122,7 @@ const Dashboard: React.FC = () => {
     // For regular text search, debounce it (150ms for faster response)
     debounceTimerRef.current = setTimeout(() => {
       setActiveSearchQuery(searchQuery);
-      filterWebsites(searchQuery);
+      filterWebsites(searchQuery, undefined, websites);
     }, 150);
 
     return () => {
@@ -132,12 +131,13 @@ const Dashboard: React.FC = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, isAIModeEnabled]);
+  }, [searchQuery, isAIModeEnabled, websites]);
 
   // Filter when active search query, websites, or category changes
   useEffect(() => {
-    if (dataLoaded) {
-      filterWebsites(activeSearchQuery);
+    if (dataLoaded && websites.length >= 0) {
+      // Pass websites directly to avoid stale closure issues
+      filterWebsites(activeSearchQuery, undefined, websites);
     } else {
       // If data not loaded yet, just set filtered to current websites
       setFilteredWebsites(websites);
@@ -253,10 +253,11 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const filterWebsites = async (query?: string, forceAI?: boolean) => {
+  const filterWebsites = async (query?: string, forceAI?: boolean, websitesList?: Website[]) => {
     const searchQueryToUse = query !== undefined ? query : activeSearchQuery;
     const useAI = forceAI !== undefined ? forceAI : isAIModeEnabled;
-    let filtered = websites;
+    // Use provided websites list or fall back to state
+    let filtered = websitesList || websites;
 
     // Filter by category
     if (selectedCategory !== 'all') {
@@ -365,15 +366,15 @@ const Dashboard: React.FC = () => {
 
     if (!query) {
       setActiveSearchQuery('');
-      filterWebsites('', isAIModeEnabled);
+      filterWebsites('', isAIModeEnabled, websites);
       return;
     }
 
     // Set active query and trigger search
     setActiveSearchQuery(query);
-    filterWebsites(query, isAIModeEnabled);
+    filterWebsites(query, isAIModeEnabled, websites);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, isAIModeEnabled]);
+  }, [searchQuery, isAIModeEnabled, websites]);
 
   // Calculate 'Recently Added' count
   const recentlyAddedCount = websites.filter(website => website.category === 'Recently Added').length;
@@ -409,7 +410,8 @@ const Dashboard: React.FC = () => {
     try {
       await signOut();
       toast.success('Successfully signed out');
-    } catch {
+    } catch (err) {
+      console.error('Sign out exception:', err);
       toast.error('Failed to sign out');
     }
   };
@@ -660,7 +662,7 @@ const Dashboard: React.FC = () => {
                 onSuggestionClick={(suggestion) => {
                   setSearchQuery(suggestion);
                   setActiveSearchQuery(suggestion);
-                  filterWebsites(suggestion, false);
+                  filterWebsites(suggestion, false, websites);
                 }}
                 isAIModeEnabled={isAIModeEnabled}
                 onAIModeToggle={() => setIsAIModeEnabled(!isAIModeEnabled)}
