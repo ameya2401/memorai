@@ -306,9 +306,16 @@ const Dashboard: React.FC = () => {
   // If selectedCategory is 'Favorites', we don't separate them (everything is pinned/starred)
   // If selectedCategory is 'Reminders', we don't separate them
   const shouldSeparatePinned = selectedCategory !== 'Favorites' && selectedCategory !== 'Reminders' && viewMode !== 'graph';
+  const hasActiveSearch = activeSearchQuery.trim().length > 0;
 
-  const pinnedWebsites = shouldSeparatePinned ? filteredWebsites.filter(w => w.is_pinned) : [];
-  const otherWebsites = shouldSeparatePinned ? filteredWebsites.filter(w => !w.is_pinned) : filteredWebsites;
+  const pinnedWebsites = shouldSeparatePinned && !hasActiveSearch ? filteredWebsites.filter(w => w.is_pinned) : [];
+  const otherWebsites = shouldSeparatePinned && !hasActiveSearch ? filteredWebsites.filter(w => !w.is_pinned) : filteredWebsites;
+
+  // When searching, separate matched results from non-matched
+  const searchResultIds = new Set(filteredWebsites.map(w => w.id));
+  const nonMatchingWebsites = hasActiveSearch && viewMode !== 'graph'
+    ? websites.filter(w => !searchResultIds.has(w.id) && (selectedCategory === 'all' || w.category === selectedCategory))
+    : [];
 
 
   const handleTogglePin = async (website: Website) => {
@@ -778,8 +785,65 @@ const Dashboard: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-8 animate-fade-in">
-                {/* Pinned Section */}
-                {pinnedWebsites.length > 0 && (
+                {/* Search Results Section - shown when there's an active search */}
+                {hasActiveSearch && filteredWebsites.length > 0 && (
+                  <div>
+                    <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Search Results ({filteredWebsites.length})
+                    </h3>
+                    <div className={
+                      viewMode === 'grid'
+                        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                        : 'space-y-4 overflow-hidden'
+                    }>
+                      {filteredWebsites.slice(0, visibleCount).map((website) => (
+                        <WebsiteCard
+                          key={website.id}
+                          website={website}
+                          viewMode={viewMode}
+                          onDelete={handleDeleteWebsite}
+                          onView={handleViewWebsite}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Other Websites Section - shown when searching to show non-matching items */}
+                {hasActiveSearch && nonMatchingWebsites.length > 0 && (
+                  <div className={`pt-6 border-t ${isDarkMode ? 'border-[#2e2e2e]' : 'border-[#e9e9e9]'}`}>
+                    <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
+                      Other Websites ({nonMatchingWebsites.length})
+                    </h3>
+                    <div className={`${viewMode === 'grid'
+                        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                        : 'space-y-4 overflow-hidden'
+                      } opacity-50`}>
+                      {nonMatchingWebsites.slice(0, 12).map((website) => (
+                        <WebsiteCard
+                          key={website.id}
+                          website={website}
+                          viewMode={viewMode}
+                          onDelete={handleDeleteWebsite}
+                          onView={handleViewWebsite}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                    {nonMatchingWebsites.length > 12 && (
+                      <p className={`text-xs mt-4 text-center ${isDarkMode ? 'text-[#787774]' : 'text-[#9b9a97]'}`}>
+                        + {nonMatchingWebsites.length - 12} more websites not matching your search
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Pinned Section - shown when NOT searching */}
+                {!hasActiveSearch && pinnedWebsites.length > 0 && (
                   <div>
                     <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
                       <Star className="h-3 w-3 fill-current" />
@@ -804,30 +868,32 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
 
-                {/* Main Section */}
-                <div>
-                  {pinnedWebsites.length > 0 && (
-                    <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
-                      {selectedCategory === 'all' ? 'All Websites' : selectedCategory}
-                    </h3>
-                  )}
-                  <div className={
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
-                      : 'space-y-4 overflow-hidden'
-                  }>
-                    {otherWebsites.slice(0, visibleCount).map((website) => (
-                      <WebsiteCard
-                        key={website.id}
-                        website={website}
-                        viewMode={viewMode}
-                        onDelete={handleDeleteWebsite}
-                        onView={handleViewWebsite}
-                        onTogglePin={handleTogglePin}
-                      />
-                    ))}
+                {/* Main Section - shown when NOT searching */}
+                {!hasActiveSearch && (
+                  <div>
+                    {pinnedWebsites.length > 0 && (
+                      <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'}`}>
+                        {selectedCategory === 'all' ? 'All Websites' : selectedCategory}
+                      </h3>
+                    )}
+                    <div className={
+                      viewMode === 'grid'
+                        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                        : 'space-y-4 overflow-hidden'
+                    }>
+                      {otherWebsites.slice(0, visibleCount).map((website) => (
+                        <WebsiteCard
+                          key={website.id}
+                          website={website}
+                          viewMode={viewMode}
+                          onDelete={handleDeleteWebsite}
+                          onView={handleViewWebsite}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 

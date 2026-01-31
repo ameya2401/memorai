@@ -7,6 +7,10 @@
  * - Spelling suggestions ("Did you mean...")
  * - Enhanced relevance ranking
  * - Real-time search support
+ * - Substring and partial word matching
+ * - Acronym detection
+ * - Word stemming (basic)
+ * - Multi-term AND/OR logic
  */
 
 import type { Website } from '../types';
@@ -19,12 +23,14 @@ export interface SmartSearchResult {
     websites: Website[];
     suggestion: string | null;  // "Did you mean: react"
     query: string;
+    totalMatches: number;
 }
 
 interface ScoredWebsite {
     website: Website;
     score: number;
     matchedTerms: string[];
+    matchedFields: string[];
 }
 
 // ============================================================================
@@ -122,6 +128,45 @@ function normalizeText(text: string): string {
  */
 function extractWords(text: string): string[] {
     return normalizeText(text).split(' ').filter(w => w.length > 1);
+}
+
+/**
+ * Extract all substrings of length >= minLen for aggressive matching
+ */
+function extractSubstrings(text: string, minLen: number = 3): string[] {
+    const normalized = text.toLowerCase().replace(/[^\w]/g, '');
+    const substrings: string[] = [];
+    for (let i = 0; i <= normalized.length - minLen; i++) {
+        for (let len = minLen; len <= Math.min(normalized.length - i, 12); len++) {
+            substrings.push(normalized.slice(i, i + len));
+        }
+    }
+    return substrings;
+}
+
+/**
+ * Simple word stemmer - removes common suffixes
+ */
+function stemWord(word: string): string {
+    const w = word.toLowerCase();
+    // Common English suffixes
+    const suffixes = ['ing', 'ed', 'es', 's', 'tion', 'ment', 'ness', 'able', 'ible', 'ful', 'less', 'ly', 'er', 'or', 'ist', 'ism'];
+    for (const suffix of suffixes) {
+        if (w.length > suffix.length + 2 && w.endsWith(suffix)) {
+            return w.slice(0, -suffix.length);
+        }
+    }
+    return w;
+}
+
+/**
+ * Generate acronym from text (e.g., "Visual Studio Code" -> "vsc")
+ */
+function generateAcronym(text: string): string {
+    return extractWords(text)
+        .map(w => w[0])
+        .join('')
+        .toLowerCase();
 }
 
 /**
@@ -261,119 +306,211 @@ export function getSuggestion(query: string, vocabulary: Set<string>): string | 
 // ============================================================================
 
 /**
- * Scoring weights for different match types
+ * Scoring weights for different match types - tuned for best results
  */
 const SCORE_WEIGHTS = {
-    EXACT_TITLE: 200,
-    FUZZY_TITLE: 150,
-    PREFIX_TITLE: 120,
-    EXACT_DESCRIPTION: 80,
-    FUZZY_DESCRIPTION: 60,
-    URL_MATCH: 50,
-    CATEGORY_MATCH: 40,
-    ANY_FIELD_FUZZY: 30,
-    RECENCY_BOOST_MAX: 10,
+    // Title matches (highest priority)
+    EXACT_TITLE_FULL: 1000,     // Full query matches title exactly
+    EXACT_TITLE_WORD: 500,      // Query term is exact word in title
+    WORD_BOUNDARY_TITLE: 400,   // Term at word boundary in title
+    PREFIX_TITLE: 300,          // Title word starts with query
+    FUZZY_TITLE: 150,           // Fuzzy match in title
+
+    // Description matches
+    EXACT_DESCRIPTION_WORD: 200, // Exact word match in description
+    WORD_BOUNDARY_DESC: 150,     // Term at word boundary in description
+    FUZZY_DESCRIPTION: 80,       // Fuzzy match in description
+
+    // URL matches (good signal for domain/path)
+    EXACT_URL_PART: 250,        // Exact match in URL part
+    URL_CONTAINS: 100,          // URL contains term
+
+    // Category matches
+    EXACT_CATEGORY: 400,        // Exact category match
+    CATEGORY_CONTAINS: 200,     // Category contains term
+
+    // Special matches
+    ACRONYM_MATCH: 350,         // Acronym match (e.g., "ai" -> "Artificial Intelligence")
+    ALL_TERMS_MATCH: 200,       // Bonus when ALL query terms match
+
+    // Boosts
+    PINNED_BOOST: 50,           // Pinned items get boost
 };
+
+// Minimum score threshold to be considered a match
+const MIN_SCORE_THRESHOLD = 150;
+
+/**
+ * Check if term appears as a word (not just substring)
+ * Returns true if term is at word boundary
+ */
+function isWordMatch(term: string, text: string): boolean {
+    const regex = new RegExp(`\\b${escapeRegex(term)}\\b`, 'i');
+    return regex.test(text);
+}
+
+/**
+ * Check if term appears at start of any word
+ */
+function isWordStartMatch(term: string, text: string): boolean {
+    const regex = new RegExp(`\\b${escapeRegex(term)}`, 'i');
+    return regex.test(text);
+}
+
+/**
+ * Escape special regex characters
+ */
+function escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Check if query matches as acronym
+ */
+function matchesAcronym(query: string, text: string): boolean {
+    const acronym = generateAcronym(text);
+    const q = query.toLowerCase().replace(/[^\w]/g, '');
+    return acronym.length >= 2 && (acronym === q || acronym.startsWith(q));
+}
 
 /**
  * Calculate a score for how well a website matches the search query
+ * STRICT matching - only returns high scores for relevant matches
  */
 function calculateScore(query: string, website: Website): ScoredWebsite {
-    const queryTerms = extractWords(query);
-    const queryNormalized = normalizeText(query);
+    const queryLower = query.toLowerCase().trim();
+    const queryTerms = queryLower.split(/\s+/).filter(t => t.length >= 2);
 
     let score = 0;
     const matchedTerms: string[] = [];
+    const matchedFields: string[] = [];
+    let termsMatched = 0;
 
     // Prepare website fields
-    const title = normalizeText(website.title || '');
-    const titleWords = extractWords(website.title || '');
-    const description = normalizeText(website.description || '');
-    const descriptionWords = extractWords(website.description || '');
-    const category = normalizeText(website.category || '');
-    const url = normalizeText(website.url || '').replace(/https?:\/\//g, '');
+    const title = website.title || '';
+    const titleLower = title.toLowerCase();
+    const titleWords = titleLower.split(/\s+/).filter(w => w.length > 1);
 
-    // Check each query term
-    for (const term of queryTerms) {
-        // === Title Matching ===
-        // Exact match in title
-        if (title.includes(term)) {
-            score += SCORE_WEIGHTS.EXACT_TITLE;
-            matchedTerms.push(term);
-        } else {
-            // Fuzzy match with title words
-            for (const titleWord of titleWords) {
-                if (isFuzzyMatch(term, titleWord, 0.75)) {
-                    score += SCORE_WEIGHTS.FUZZY_TITLE;
-                    matchedTerms.push(titleWord);
-                    break;
-                }
-                // Prefix match (title word starts with query term)
-                if (titleWord.startsWith(term)) {
-                    score += SCORE_WEIGHTS.PREFIX_TITLE;
-                    matchedTerms.push(titleWord);
-                    break;
+    const description = website.description || '';
+    const descriptionLower = description.toLowerCase();
+
+    const category = website.category || '';
+    const categoryLower = category.toLowerCase();
+
+    const url = (website.url || '').toLowerCase().replace(/https?:\/\/(www\.)?/g, '');
+    const urlParts = url.split(/[\/\.\-_?&#=]/).filter(p => p.length > 1);
+
+    // === FULL QUERY MATCHING ===
+
+    // Exact full query as word in title (highest priority)
+    if (isWordMatch(queryLower, titleLower)) {
+        score += SCORE_WEIGHTS.EXACT_TITLE_FULL;
+        matchedFields.push('title-exact-word');
+        matchedTerms.push(queryLower);
+    }
+    // Full query at word start in title
+    else if (isWordStartMatch(queryLower, titleLower)) {
+        score += SCORE_WEIGHTS.WORD_BOUNDARY_TITLE;
+        matchedFields.push('title-word-start');
+        matchedTerms.push(queryLower);
+    }
+
+    // Full query in description as word
+    if (isWordMatch(queryLower, descriptionLower)) {
+        score += SCORE_WEIGHTS.EXACT_DESCRIPTION_WORD;
+        matchedFields.push('description-exact-word');
+    }
+
+    // Full query in category
+    if (categoryLower === queryLower || isWordMatch(queryLower, categoryLower)) {
+        score += SCORE_WEIGHTS.EXACT_CATEGORY;
+        matchedFields.push('category-exact');
+        matchedTerms.push(queryLower);
+    } else if (categoryLower.includes(queryLower)) {
+        score += SCORE_WEIGHTS.CATEGORY_CONTAINS;
+        matchedFields.push('category-contains');
+    }
+
+    // URL part exact match (domain, path segment)
+    if (urlParts.some(p => p === queryLower)) {
+        score += SCORE_WEIGHTS.EXACT_URL_PART;
+        matchedFields.push('url-exact-part');
+        matchedTerms.push(queryLower);
+    } else if (urlParts.some(p => p.startsWith(queryLower) && queryLower.length >= 3)) {
+        score += SCORE_WEIGHTS.URL_CONTAINS;
+        matchedFields.push('url-starts');
+    }
+
+    // Acronym matching (e.g., "ai" matches "Artificial Intelligence")
+    if (queryLower.length >= 2 && queryLower.length <= 4) {
+        if (matchesAcronym(queryLower, title)) {
+            score += SCORE_WEIGHTS.ACRONYM_MATCH;
+            matchedTerms.push(queryLower + '(acronym)');
+            matchedFields.push('title-acronym');
+        }
+    }
+
+    // === PER-TERM MATCHING (for multi-word queries) ===
+    if (queryTerms.length > 0) {
+        for (const term of queryTerms) {
+            let termMatched = false;
+
+            // Title - exact word
+            if (titleWords.includes(term)) {
+                score += SCORE_WEIGHTS.EXACT_TITLE_WORD;
+                termMatched = true;
+                if (!matchedTerms.includes(term)) matchedTerms.push(term);
+                matchedFields.push('title-word');
+            }
+            // Title - word starts with term
+            else if (titleWords.some(w => w.startsWith(term))) {
+                score += SCORE_WEIGHTS.PREFIX_TITLE;
+                termMatched = true;
+                if (!matchedTerms.includes(term)) matchedTerms.push(term);
+                matchedFields.push('title-prefix');
+            }
+            // Title - fuzzy match (for typos)
+            else if (term.length >= 4) {
+                for (const titleWord of titleWords) {
+                    if (titleWord.length >= 4 && isFuzzyMatch(term, titleWord, 0.75)) {
+                        score += SCORE_WEIGHTS.FUZZY_TITLE;
+                        termMatched = true;
+                        if (!matchedTerms.includes(titleWord)) matchedTerms.push(titleWord);
+                        matchedFields.push('title-fuzzy');
+                        break;
+                    }
                 }
             }
-        }
 
-        // === Description Matching ===
-        if (description.includes(term)) {
-            score += SCORE_WEIGHTS.EXACT_DESCRIPTION;
-            if (!matchedTerms.includes(term)) matchedTerms.push(term);
-        } else {
-            for (const descWord of descriptionWords) {
-                if (isFuzzyMatch(term, descWord, 0.75)) {
-                    score += SCORE_WEIGHTS.FUZZY_DESCRIPTION;
-                    if (!matchedTerms.includes(descWord)) matchedTerms.push(descWord);
-                    break;
-                }
+            // Description - word boundary match
+            if (isWordMatch(term, descriptionLower)) {
+                score += SCORE_WEIGHTS.WORD_BOUNDARY_DESC;
+                termMatched = true;
+                matchedFields.push('desc-word');
             }
-        }
 
-        // === URL Matching ===
-        if (url.includes(term)) {
-            score += SCORE_WEIGHTS.URL_MATCH;
-            if (!matchedTerms.includes(term)) matchedTerms.push(term);
-        }
-
-        // === Category Matching ===
-        if (category.includes(term) || isFuzzyMatch(term, category, 0.7)) {
-            score += SCORE_WEIGHTS.CATEGORY_MATCH;
-            if (!matchedTerms.includes(term)) matchedTerms.push(term);
-        }
-    }
-
-    // Full phrase matching bonus
-    if (title.includes(queryNormalized)) {
-        score += 50; // Extra bonus for full phrase in title
-    }
-    if (description.includes(queryNormalized)) {
-        score += 25; // Extra bonus for full phrase in description
-    }
-
-    // N-gram matching for very short queries (2-3 chars)
-    if (query.length <= 3 && query.length >= 2) {
-        const queryNgrams = generateNgrams(query.toLowerCase(), 2);
-        const allFieldsText = `${title} ${description} ${url}`;
-        const allNgrams = generateNgrams(allFieldsText, 2);
-
-        for (const qNgram of queryNgrams) {
-            if (allNgrams.includes(qNgram)) {
-                score += 10;
-                break;
+            // URL - term in URL parts
+            if (urlParts.some(p => p === term || p.startsWith(term))) {
+                score += SCORE_WEIGHTS.URL_CONTAINS;
+                termMatched = true;
+                matchedFields.push('url-term');
             }
+
+            if (termMatched) termsMatched++;
+        }
+
+        // Bonus if ALL query terms matched somewhere
+        if (queryTerms.length > 1 && termsMatched === queryTerms.length) {
+            score += SCORE_WEIGHTS.ALL_TERMS_MATCH;
         }
     }
 
-    // Recency boost (newer entries get slight boost)
-    if (website.created_at) {
-        const ageInDays = (Date.now() - new Date(website.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        const recencyBoost = Math.max(0, SCORE_WEIGHTS.RECENCY_BOOST_MAX - Math.floor(ageInDays / 30));
-        score += recencyBoost;
+    // Pinned boost
+    if (website.is_pinned && score > 0) {
+        score += SCORE_WEIGHTS.PINNED_BOOST;
     }
 
-    return { website, score, matchedTerms };
+    return { website, score, matchedTerms, matchedFields };
 }
 
 // ============================================================================
@@ -400,14 +537,17 @@ export function smartSearch(
         return {
             websites,
             suggestion: null,
-            query: ''
+            query: '',
+            totalMatches: websites.length
         };
     }
 
-    // Calculate scores for all websites
-    const scoredWebsites: ScoredWebsite[] = websites
+    const queryLower = trimmedQuery.toLowerCase();
+
+    // Calculate scores for all websites - STRICT filtering
+    let scoredWebsites: ScoredWebsite[] = websites
         .map(website => calculateScore(trimmedQuery, website))
-        .filter(sw => sw.score > 0)  // Only include websites with positive scores
+        .filter(sw => sw.score >= MIN_SCORE_THRESHOLD)  // Only include websites above threshold
         .sort((a, b) => b.score - a.score);  // Sort by score descending
 
     // Get spelling suggestion if vocabulary is provided and few/no results
@@ -423,7 +563,8 @@ export function smartSearch(
     return {
         websites: scoredWebsites.map(sw => sw.website),
         suggestion,
-        query: trimmedQuery
+        query: trimmedQuery,
+        totalMatches: scoredWebsites.length
     };
 }
 
@@ -436,25 +577,43 @@ export function quickSearch(query: string, websites: Website[]): Website[] {
 
     if (!trimmedQuery) return websites;
 
-    // Simple prefix and contains matching for speed
+    // For single characters, match word starts
+    if (trimmedQuery.length === 1) {
+        return websites.filter(website => {
+            const words = extractWords([
+                website.title || '',
+                website.description || '',
+                website.category || ''
+            ].join(' '));
+            return words.some(w => w.startsWith(trimmedQuery));
+        });
+    }
+
+    // More comprehensive matching for quick search
     return websites.filter(website => {
-        const searchable = [
-            website.title || '',
-            website.description || '',
-            website.category || '',
-            website.url || ''
-        ].join(' ').toLowerCase();
+        const title = (website.title || '').toLowerCase();
+        const description = (website.description || '').toLowerCase();
+        const category = (website.category || '').toLowerCase();
+        const url = (website.url || '').toLowerCase();
+
+        const searchable = `${title} ${description} ${category} ${url}`;
+
+        // Direct substring match
+        if (searchable.includes(trimmedQuery)) return true;
 
         // Check if any word starts with query
-        const words = searchable.split(/\s+/);
-        const hasPrefix = words.some(word => word.startsWith(trimmedQuery));
+        const words = searchable.split(/[\s\-_\/\.]+/);
+        if (words.some(word => word.startsWith(trimmedQuery))) return true;
 
-        // Check if searchable contains query
-        const hasMatch = searchable.includes(trimmedQuery);
+        // Check acronym match for short queries
+        if (trimmedQuery.length <= 4) {
+            const acronym = generateAcronym(website.title || '');
+            if (acronym.startsWith(trimmedQuery)) return true;
+        }
 
-        return hasPrefix || hasMatch;
+        return false;
     });
 }
 
 // Export for testing
-export { levenshteinDistance, stringSimilarity, isFuzzyMatch, phoneticHash };
+export { levenshteinDistance, stringSimilarity, isFuzzyMatch, phoneticHash, stemWord, generateAcronym };

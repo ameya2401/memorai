@@ -1,4 +1,58 @@
 import type { Website } from '../types';
+import { smartSearch } from './smartSearch';
+
+const MAX_AI_RESULTS = 8;
+const PREFILTER_CANDIDATES = 60;  // Send more candidates for better semantic analysis
+const DESCRIPTION_SNIPPET = 400;  // More context for AI to understand domain
+
+const buildCandidates = (query: string, websites: Website[]): Website[] => {
+  const trimmed = query.trim();
+  if (!trimmed) return websites.slice(0, PREFILTER_CANDIDATES);
+
+  const ranked = smartSearch(trimmed, websites).websites;
+  if (ranked.length === 0) return websites.slice(0, PREFILTER_CANDIDATES);
+
+  return ranked.slice(0, PREFILTER_CANDIDATES);
+};
+
+const makeContext = (candidates: Website[]) =>
+  candidates.map(w => ({
+    id: w.id,
+    title: w.title,
+    url: w.url,
+    category: w.category,
+    description: (w.description || '').slice(0, DESCRIPTION_SNIPPET),
+  }));
+
+function textSearch(query: string, websites: Website[]): Website[] {
+  const result = smartSearch(query, websites);
+  return result.websites;
+}
+
+const postProcess = (ids: string[] | undefined, websites: Website[], query: string): Website[] => {
+  if (!Array.isArray(ids)) return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
+
+  const byId = new Map(websites.map(w => [w.id, w] as const));
+  const seen = new Set<string>();
+  const matched: Website[] = [];
+
+  for (const id of ids) {
+    if (typeof id !== 'string' || seen.has(id)) continue;
+    const website = byId.get(id);
+    if (website) {
+      matched.push(website);
+      seen.add(id);
+      if (matched.length >= MAX_AI_RESULTS) break;
+    }
+  }
+
+  if (matched.length === 0) {
+    return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
+  }
+
+  // Stabilize ordering by re-running local relevance scoring on the matched set
+  return smartSearch(query, matched).websites.slice(0, MAX_AI_RESULTS);
+};
 
 export const searchWebsitesWithAI = async (query: string, websites: Website[]): Promise<Website[]> => {
   if (!query.trim()) {
@@ -10,15 +64,10 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
   }
 
   try {
-    const websitesContext = websites.map(w => ({
-      id: w.id,
-      title: w.title,
-      url: w.url,
-      category: w.category,
-      description: w.description || '',
-    }));
+    const candidates = buildCandidates(query, websites);
+    const websitesContext = makeContext(candidates);
 
-    console.log(`[AI Search] Searching ${websites.length} websites with query: "${query}"`);
+    console.log(`[AI Search] Searching ${websites.length} websites with query: "${query}" (candidates sent: ${websitesContext.length})`);
 
     // Prefer secure serverless endpoint first
     try {
@@ -37,12 +86,9 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
         }
 
         if (Array.isArray(data.ids)) {
-          const ordered = data.ids
-            .map(id => websites.find(w => w.id === id))
-            .filter(Boolean) as Website[];
-
+          const ordered = postProcess(data.ids, websites, query);
           console.log(`[AI Search] Found ${ordered.length} results via server endpoint`);
-          return ordered.length > 0 ? ordered : textSearch(query, websites);
+          return ordered;
         }
       } else {
         const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -64,7 +110,7 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
 
           const genAI = new GoogleGenerativeAI(apiKey);
           // Try multiple model names in order of preference
-          const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+          const modelNames = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
           let model;
           for (const name of modelNames) {
@@ -75,31 +121,46 @@ export const searchWebsitesWithAI = async (query: string, websites: Website[]): 
               // ignore
             }
           }
-          if (!model) model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+          if (!model) model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-          const prompt = `You are a STRICT search engine for a personal website bookmarks app. Given a user's search query and a list of their saved websites, return ONLY the IDs of websites that are GENUINELY relevant.
+          const prompt = `You are a SEMANTIC search engine for a bookmarks app. Your job is to understand what each website ACTUALLY IS (its purpose/domain) and match it to the user's search intent.
 
 User Query: "${query}"
 
-Saved Websites:
+Candidate Websites:
 ${JSON.stringify(websitesContext, null, 2)}
 
-STRICT MATCHING RULES:
-1. A website is relevant ONLY if:
-   - The title, URL, or description contains keywords from the query, OR
-   - The website's topic directly relates to the query's intent
-2. DO NOT return websites just because they are "vaguely related" or "might be useful"
-3. If the query asks about "resume", only return websites about resumes, CVs, job applications, career tips
-4. If the query asks about "cooking", only return websites about cooking, recipes, food
-5. Be VERY strict - it's better to return an empty array than to return irrelevant results
-6. Maximum 10 results, ordered by relevance (best match first)
+INSTRUCTIONS:
+1) First, understand what the user is ACTUALLY looking for. "${query}" means they want: [analyze the intent]
+2) For EACH website, determine its PRIMARY PURPOSE/DOMAIN:
+   - What does this website/tool actually DO?
+   - What problem does it solve?
+   - What category/industry does it belong to?
+3) ONLY return websites whose PRIMARY PURPOSE matches the search intent.
+4) DO NOT match just because keywords appear - the website must BE what the user is searching for.
 
-CRITICAL: If NO websites genuinely match the query, return an empty array: []
-Do NOT guess or return random websites. Users prefer no results over wrong results.
+EXAMPLES:
+- Query "ai website maker" → Match: Wix AI, Framer, Webflow (tools that use AI to build websites)
+- Query "ai website maker" → DO NOT match: Article about AI, Random site with "website" in description
+- Query "react tutorials" → Match: React docs, Codecademy React course
+- Query "react tutorials" → DO NOT match: Blog post mentioning React once
 
-Response format (JSON array of IDs only): ["id1", "id2"]`;
+RULES:
+- Return [] if no website's PRIMARY PURPOSE matches the query intent
+- Maximum ${MAX_AI_RESULTS} results, best matches first
+- Use ONLY IDs from the candidate list
 
-          const result = await model.generateContent(prompt);
+Respond with JSON: {"ids": ["id1","id2"]}. No extra text.`;
+
+          const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0,
+              topK: 32,
+              topP: 0.8,
+              maxOutputTokens: 256,
+            },
+          });
           const response = await result.response;
           const text = response.text();
 
@@ -108,24 +169,46 @@ Response format (JSON array of IDs only): ["id1", "id2"]`;
           try {
             // Try to extract JSON from the response (might have markdown code blocks)
             let jsonText = text.trim();
+
             // Remove markdown code blocks if present
             if (jsonText.startsWith('```')) {
-              jsonText = jsonText.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '');
+              jsonText = jsonText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
             }
 
-            const ids = JSON.parse(jsonText.trim());
-            if (Array.isArray(ids)) {
-              const ordered = ids
-                .map(id => websites.find(w => w.id === id))
-                .filter(Boolean) as Website[];
-
-              console.log(`[AI Search] Found ${ordered.length} results via client-side API`);
-              if (ordered.length > 0) return ordered;
+            // Try to extract JSON object/array from the text
+            const jsonMatch = jsonText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+            if (jsonMatch) {
+              jsonText = jsonMatch[0];
             }
+
+            const parsed = JSON.parse(jsonText.trim());
+            let ids = Array.isArray(parsed) ? parsed : parsed?.ids;
+
+            // Fallback: extract from object values
+            if (!Array.isArray(ids) && parsed && typeof parsed === 'object') {
+              ids = Object.values(parsed).flat().filter(v => typeof v === 'string');
+            }
+
+            const ordered = postProcess(ids, websites, query);
+            console.log(`[AI Search] Found ${ordered.length} results via client-side API`);
+            if (ordered.length > 0) return ordered;
           } catch (parseError) {
             console.error('[AI Search] Failed to parse AI response:', parseError);
             console.error('[AI Search] Raw response:', text);
-            throw new Error('Failed to parse AI response');
+
+            // Last resort: try to extract UUIDs directly from text
+            const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+            const uuidMatches = text.match(uuidRegex);
+            if (uuidMatches && uuidMatches.length > 0) {
+              const ids = [...new Set(uuidMatches)].slice(0, MAX_AI_RESULTS);
+              console.log(`[AI Search] Extracted ${ids.length} UUIDs directly from text`);
+              const ordered = postProcess(ids, websites, query);
+              if (ordered.length > 0) return ordered;
+            }
+
+            // Fall back to text search instead of throwing
+            console.log('[AI Search] Parse failed, using text search fallback');
+            return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
           }
         } catch (clientError: any) {
           console.error('[AI Search] Client-side API failed:', clientError.message);
@@ -133,33 +216,24 @@ Response format (JSON array of IDs only): ["id1", "id2"]`;
           // For rate limit errors, silently fall back to text search instead of showing error
           if (clientError.message?.includes('429')) {
             console.log('[AI Search] Rate limit exceeded, falling back to text search');
-            return textSearch(query, websites);
+            return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
           }
           throw clientError;
         }
       } else {
         console.log('[AI Search] No client-side API key, using text search');
-        return textSearch(query, websites);
+        return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
       }
     }
 
     // Fallback to text search
     console.log('[AI Search] Falling back to text search');
-    return textSearch(query, websites);
+    return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
   } catch (error: any) {
     if (error.message?.includes('429') || error.message?.includes('rate limit')) {
-      return textSearch(query, websites);
+      return textSearch(query, websites).slice(0, MAX_AI_RESULTS);
     }
     console.error('[AI Search] All methods failed:', error);
     throw error;
   }
-};
-
-// Re-export smartSearch for fallback text search
-import { smartSearch } from './smartSearch';
-
-// Simple wrapper to maintain backward compatibility
-const textSearch = (query: string, websites: Website[]): Website[] => {
-  const result = smartSearch(query, websites);
-  return result.websites;
 };
