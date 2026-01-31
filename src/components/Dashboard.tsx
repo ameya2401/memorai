@@ -68,13 +68,14 @@ const Dashboard: React.FC = () => {
     if (user) {
       fetchWebsites();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, refreshTrigger]);
 
   useEffect(() => {
     if (!user) return;
 
     // Subscribe to both websites and categories changes
-    const websitesChannel = (supabase as any).channel('websites-realtime')
+    const websitesChannel = supabase.channel('websites-realtime')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -85,7 +86,7 @@ const Dashboard: React.FC = () => {
       })
       .subscribe();
 
-    const categoriesChannel = (supabase as any).channel('categories-realtime')
+    const categoriesChannel = supabase.channel('categories-realtime')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -98,10 +99,13 @@ const Dashboard: React.FC = () => {
 
     return () => {
       try {
-        (supabase as any).removeChannel(websitesChannel);
-        (supabase as any).removeChannel(categoriesChannel);
-      } catch { }
+        supabase.removeChannel(websitesChannel);
+        supabase.removeChannel(categoriesChannel);
+      } catch {
+        // Cleanup error ignored
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Debounced search
@@ -127,6 +131,7 @@ const Dashboard: React.FC = () => {
         clearTimeout(debounceTimerRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, isAIModeEnabled]);
 
   // Filter when active search query, websites, or category changes
@@ -139,6 +144,7 @@ const Dashboard: React.FC = () => {
     }
     // Reset visible count when filters change
     setVisibleCount(ITEMS_PER_PAGE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [websites, selectedCategory, activeSearchQuery, dataLoaded]);
 
   // Infinite Scroll Observer
@@ -177,13 +183,14 @@ const Dashboard: React.FC = () => {
       { threshold: 0.1 }
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
     }
 
     return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
       }
     };
   }, [filteredWebsites.length, visibleCount, isLoadingMore, selectedCategory]);
@@ -206,7 +213,7 @@ const Dashboard: React.FC = () => {
 
       // Mark data as loaded
       setDataLoaded(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Failed to fetch websites');
       console.error('Error:', error);
       setDataLoaded(true); // Even on error, mark as loaded to show empty state
@@ -231,7 +238,7 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
 
       // Calculate counts based on current websites
-      const categoriesWithCounts = (categoriesData || []).map((cat: any) => {
+      const categoriesWithCounts = (categoriesData || []).map((cat: { id: string; name: string }) => {
         const count = siteList.filter(w => w.category === cat.name).length;
         return {
           id: cat.id,
@@ -277,9 +284,9 @@ const Dashboard: React.FC = () => {
           if (filtered.length === 0) {
             toast('No results found', { icon: 'ℹ️' });
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('AI search failed:', error);
-          const errorMessage = error?.message || 'AI search failed';
+          const errorMessage = error instanceof Error ? error.message : 'AI search failed';
           toast.error(`AI search failed: ${errorMessage}. Using text search instead.`);
           // Fallback to smart text search
           const result = smartSearch(searchQueryToUse, filtered, vocabulary);
@@ -365,6 +372,7 @@ const Dashboard: React.FC = () => {
     // Set active query and trigger search
     setActiveSearchQuery(query);
     filterWebsites(query, isAIModeEnabled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, isAIModeEnabled]);
 
   // Calculate 'Recently Added' count
@@ -383,7 +391,7 @@ const Dashboard: React.FC = () => {
       toast.success('Website deleted successfully');
       fetchWebsites();
       handleCategoryChange(); // Update category counts
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Failed to delete website');
       console.error('Error:', error);
     }
@@ -401,7 +409,7 @@ const Dashboard: React.FC = () => {
     try {
       await signOut();
       toast.success('Successfully signed out');
-    } catch (error: any) {
+    } catch {
       toast.error('Failed to sign out');
     }
   };
@@ -425,7 +433,7 @@ const Dashboard: React.FC = () => {
 
       // Refresh data
       triggerRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error handling reminder open:', error);
       toast.error('Failed to update reminder');
     }
@@ -447,7 +455,7 @@ const Dashboard: React.FC = () => {
       // Refresh data
       triggerRefresh();
       toast.success('Reminder postponed');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error handling check later:', error);
       toast.error('Failed to update reminder');
     }
@@ -470,7 +478,7 @@ const Dashboard: React.FC = () => {
       // Refresh data
       triggerRefresh();
       toast.success('Reminder dismissed permanently');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error handling dismiss reminder:', error);
       toast.error('Failed to dismiss reminder');
     }

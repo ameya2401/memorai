@@ -25,7 +25,7 @@ interface GraphLink {
 
 const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }) => {
     const { isDarkMode } = useTheme();
-    const fgRef = useRef<any>();
+    const fgRef = useRef<{ centerAt: (x: number, y: number, ms: number) => void; zoom: (val: number, ms: number) => void; zoomToFit: (ms: number) => void } | null>(null);
     const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
     const containerRef = useRef<HTMLDivElement>(null);
     const [isReady, setIsReady] = useState(false);
@@ -88,6 +88,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
         });
 
         return { nodes, links };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [websites, isDarkMode]);
 
     // Handle Resize
@@ -156,7 +157,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
                     nodeColor="color"
                     linkColor={() => isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
                     nodeRelSize={4}
-                    onNodeClick={(node: any) => {
+                    onNodeClick={(node: GraphNode) => {
                         if (node.type === 'website' && node.data) {
                             onNodeClick(node.data);
                         } else if (node.type === 'category') {

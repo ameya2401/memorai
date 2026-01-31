@@ -13,7 +13,7 @@ const parseBody = (req) => {
     req.on('end', () => {
       try {
         resolve(JSON.parse(body));
-      } catch (e) {
+      } catch {
         resolve({});
       }
     });
@@ -23,7 +23,7 @@ const parseBody = (req) => {
 const apiMiddleware = () => {
   return {
     name: 'api-middleware',
-    configureServer(server) {
+    configureServer(server: { middlewares: { use: (handler: (req: { url?: string; method?: string; body?: unknown; on: (event: string, callback: (chunk: Buffer) => void) => void }, res: { statusCode: number; setHeader: (name: string, value: string) => void; end: (data: string) => void; status?: (code: number) => unknown; json?: (data: unknown) => void }, next: () => void) => Promise<void>) => void } }) {
       server.middlewares.use(async (req, res, next) => {
         if (req.url?.startsWith('/api/')) {
           const apiPath = req.url.split('?')[0]; // simple path matching
@@ -34,15 +34,15 @@ const apiMiddleware = () => {
             try {
               // Parse body for POST requests
               if (req.method === 'POST') {
-                (req as any).body = await parseBody(req);
+                req.body = await parseBody(req);
               }
 
               // Mock Express methods
-              (res as any).status = (statusCode) => {
+              res.status = (statusCode: number) => {
                 res.statusCode = statusCode;
                 return res;
               };
-              (res as any).json = (data) => {
+              res.json = (data: unknown) => {
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify(data));
                 return res;

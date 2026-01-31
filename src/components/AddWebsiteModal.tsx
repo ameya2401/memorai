@@ -53,8 +53,9 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
       toast.success('Website added successfully!');
       handleClose();
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to add website');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add website';
+      toast.error(errorMessage);
       console.error('Error:', error);
     } finally {
       setLoading(false);
@@ -98,8 +99,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
           <button
             onClick={handleClose}
             className={`rounded transition-all duration-150 ${isDarkMode
-                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+              ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+              : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
               }`}
           >
             <X className="h-3.5 w-3.5" />
@@ -123,8 +124,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
                 required
                 placeholder="https://example.com"
                 className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
-                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                   }`}
               />
             </div>
@@ -145,8 +146,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Website title (optional)"
                 className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
-                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                   }`}
               />
             </div>
@@ -168,8 +169,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
                 list="categories"
                 placeholder="e.g., AI Tools, Job Portals, Blogs"
                 className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
-                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                   }`}
               />
               <datalist id="categories">
@@ -195,8 +196,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
                 placeholder="Add a note about this website..."
                 rows={3}
                 className={`w-full pl-10 pr-3 py-2 border rounded-lg font-normal text-sm focus:outline-none resize-none transition-colors duration-300 ${isDarkMode
-                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
                   }`}
               />
             </div>
@@ -207,8 +208,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
               type="button"
               onClick={handleClose}
               className={`flex-1 px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal ${isDarkMode
-                  ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
                 }`}
             >
               Cancel
@@ -217,8 +218,8 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
               type="submit"
               disabled={loading || !url.trim()}
               className={`flex-1 px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode
-                  ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
-                  : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
+                ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
+                : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
                 }`}
             >
               {loading ? 'Adding...' : 'Add Website'}

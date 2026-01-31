@@ -92,7 +92,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
       toast.success('Website updated successfully');
       setIsEditing(false);
       onUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Failed to update website');
       console.error('Error:', error);
     } finally {
@@ -169,7 +169,7 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
           : 'Reminders enabled for this website'
       );
       onUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error toggling reminders:', error);
     }
   };

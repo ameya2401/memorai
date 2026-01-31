@@ -132,9 +132,10 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       setNewCategoryName('');
       setIsAddingCategory(false);
       onCategoryChange();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create category:', error);
-      toast.error(error?.message || 'Failed to create category');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create category';
+      toast.error(errorMessage);
     } finally {
       setIsCreating(false);
     }
@@ -172,9 +173,10 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       toast.success('Category deleted successfully');
       setCategoryToDelete(null);
       onCategoryChange();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete category:', error);
-      toast.error(error?.message || 'Failed to delete category');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete category';
+      toast.error(errorMessage);
     } finally {
       setIsDeleting(false);
     }

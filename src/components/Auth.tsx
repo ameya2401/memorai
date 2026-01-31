@@ -28,8 +28,9 @@ const Auth: React.FC = () => {
         toast.success('Confirmation code sent! Please check your email.');
         setIsVerifying(true);
       }
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -44,8 +45,9 @@ const Auth: React.FC = () => {
       if (error) throw error;
       toast.success('Email verified successfully! You are now signed in.');
       // verifyOtp typically handles the session creation automatically
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Verification failed';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -55,8 +57,9 @@ const Auth: React.FC = () => {
     try {
       const { error } = await signInWithGoogle();
       if (error) throw error;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Google login failed';
+      toast.error(errorMessage);
     }
   };
 
