@@ -1,4 +1,4 @@
-# Memorai - Your Second Brain for the Web 🧠
+# Memorai - Your Second Brain for the Web
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![React](https://img.shields.io/badge/React-18.3-blue.svg)
@@ -12,7 +12,7 @@ Memorai is a specialized full-stack application designed to solve the chaos of b
 
 ---
 
-## ✨ Why Memorai?
+## Why Memorai?
 
 We all face **Digital Information Overload**. We save articles, tools, and tutorials "for later," but "later" never comes because we forget they exist or can't find them with simple keyword searches.
 
@@ -23,38 +23,38 @@ Memorai solves this by:
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-### 🧠 AI-Powered Semantic Search
+### AI-Powered Semantic Search
 Powered by **Google Gemini 2.5 Flash**, Memorai understands the *meaning* of your search queries.
 - **Natural Language**: Search for "tools for backend development" to find database tutorials you saved.
 - **Hybrid Search Strategy**: Combines regular text search with AI re-ranking for speed and accuracy.
 
-### 🔍 Smart Fuzzy Search
+### Smart Fuzzy Search
 Never worry about typos again.
 - **Levenshtein Distance**: Matches "recat" to "React" (up to 3 character edits).
 - **Phonetic Matching**: Finds words that sound similar (Soundex-like algorithms).
 - **Spelling Suggestions**: "Did you mean..." prompts based on your personal saved vocabulary.
 
-### 🕸️ Knowledge Graph Visualization
+### Knowledge Graph Visualization
 Visualize your "second brain." The **Graph View** renders your websites as nodes connected to their categories.
 - **Interactive**: Click nodes to navigate or zoom into clusters.
 - **Force-Directed Layout**: Organic grouping of related content.
 
-### 🔔 Smart Reminders System
+### Smart Reminders System
 Don't let links rot.
 - **Automatic Cues**: Websites saved >3 days ago that haven't been visited appear in "Reminders."
 - **Cooldowns**: Acknowledgement resets the timer for 7 days.
 - **Customizable**: Dismiss reminders for reference-only items.
 
-### 🛠️ Sidebar & Organization
+### Sidebar & Organization
 - **Independent Scrolling**: Navigate massive category lists without losing your place in the grid.
 - **Smart Categories**: "Recently Added," "Favorites," and auto-categorization suggestions (via Extension).
 - **Smooth UI**: Glassmorphism headers, dark mode support, and fluid transitions.
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
@@ -67,7 +67,7 @@ Don't let links rot.
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```bash
 Memorai/project/
@@ -84,7 +84,7 @@ Memorai/project/
 
 ---
 
-## 📊 Database & Security
+## Database & Security
 
 ### Schema
 Key tables: `websites` and `categories`.
@@ -98,7 +98,7 @@ Security is enforced at the **Database Ecosystem level**, not just the API.
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js 18+
@@ -138,15 +138,13 @@ Security is enforced at the **Database Ecosystem level**, not just the API.
 
 ---
 
-## 🔮 Future Roadmap
+## Future Roadmap
 - [ ] **Mobile App**: Native mobile experience.
 - [ ] **Reader Mode**: Distraction-free content reading within the app.
 - [ ] **Collaborative Spaces**: Shared folders for teams.
 
 ---
 
-## 👨‍💻 Author
+## Author
 **Ameya Bhagat**
 *Developed as a Semester Mini-Project demonstrating modern Full-Stack & AI capabilities.*
-
----

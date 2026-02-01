@@ -16,6 +16,8 @@ interface GraphNode {
     color: string;
     type: 'category' | 'website';
     data?: Website;
+    x?: number;
+    y?: number;
 }
 
 interface GraphLink {
@@ -25,7 +27,8 @@ interface GraphLink {
 
 const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }) => {
     const { isDarkMode } = useTheme();
-    const fgRef = useRef<{ centerAt: (x: number, y: number, ms: number) => void; zoom: (val: number, ms: number) => void; zoomToFit: (ms: number) => void } | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fgRef = useRef<any>(null);
     const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
     const containerRef = useRef<HTMLDivElement>(null);
     const [isReady, setIsReady] = useState(false);
@@ -162,7 +165,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
                     onNodeClick={(node: GraphNode) => {
                         if (node.type === 'website' && node.data) {
                             onNodeClick(node.data);
-                        } else if (node.type === 'category') {
+                        } else if (node.type === 'category' && typeof node.x === 'number' && typeof node.y === 'number') {
                             // Maybe gather all children or zoom to cluster?
                             fgRef.current?.centerAt(node.x, node.y, 1000);
                             fgRef.current?.zoom(2.5, 1000);
