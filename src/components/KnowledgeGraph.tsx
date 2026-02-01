@@ -159,16 +159,59 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
                     graphData={graphData}
                     nodeLabel="name"
                     backgroundColor={isDarkMode ? '#121212' : '#f9fafb'}
-                    nodeColor="color"
                     linkColor={() => isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                    nodeRelSize={4}
+
+                    // Custom Node Rendering
+                    nodeCanvasObject={(node, ctx, globalScale) => {
+                        const label = node.name;
+                        const fontSize = node.type === 'category' ? 14 / globalScale : 10 / globalScale;
+                        const radius = node.val;
+                        const x = node.x || 0;
+                        const y = node.y || 0;
+
+                        // Draw Node Circle
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+                        ctx.fillStyle = node.color;
+                        ctx.fill();
+
+                        // Draw Border for Categories
+                        if (node.type === 'category') {
+                            ctx.strokeStyle = isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)';
+                            ctx.lineWidth = 1 / globalScale;
+                            ctx.stroke();
+                        }
+
+                        // Draw Label
+                        // Always show labels for categories, show for websites only when zoomed in or on hover (handled by default label for hover)
+                        // Here we draw persistent labels for categories
+                        if (node.type === 'category') {
+                            ctx.font = `${fontSize}px Sans-Serif`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillStyle = isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.9)';
+                            // Draw text below the node
+                            ctx.fillText(label, x, y + radius + fontSize);
+                        }
+                    }}
+
+                    // Explicit Hit Area Definition (Critical for interaction)
+                    nodePointerAreaPaint={(node, color, ctx) => {
+                        const x = node.x || 0;
+                        const y = node.y || 0;
+                        const radius = node.val; // Use the same radius as visually drawn
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+                        ctx.fill();
+                    }}
+
                     onNodeClick={(node: GraphNode) => {
                         if (node.type === 'website' && node.data) {
                             onNodeClick(node.data);
                         } else if (node.type === 'category' && typeof node.x === 'number' && typeof node.y === 'number') {
-                            // Maybe gather all children or zoom to cluster?
                             fgRef.current?.centerAt(node.x, node.y, 1000);
-                            fgRef.current?.zoom(2.5, 1000);
+                            fgRef.current?.zoom(3, 1000);
                         }
                     }}
                     cooldownTicks={100}
