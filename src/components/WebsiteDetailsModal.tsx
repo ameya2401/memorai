@@ -76,11 +76,37 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
 
     setIsSaving(true);
     try {
+      const finalCategory = editData.category === '__create_new__' ? editData.newCategory.trim() : editData.category;
+
+      if (!finalCategory) {
+        toast.error('Category name is required');
+        setIsSaving(false);
+        return;
+      }
+
+      // If creating a new category, insert it into the categories table first
+      if (editData.category === '__create_new__') {
+        const { error: categoryError } = await supabase
+          .from('categories')
+          .insert({
+            name: finalCategory,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        // Ignore duplicate error (23505 is unique violation code in Postgres) - means it already exists which is fine
+        if (categoryError && categoryError.code !== '23505') {
+          console.error('Error creating category:', categoryError);
+          // We continue anyway, as the website update might still succeed with the string
+        }
+      }
+
       const { error } = await supabase
         .from('websites')
         .update({
           title: editData.title.trim(),
-          category: editData.category === '__create_new__' ? editData.newCategory.trim() : editData.category,
+          category: finalCategory,
           description: editData.description.trim() || null,
           updated_at: new Date().toISOString(),
         })
