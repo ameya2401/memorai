@@ -297,8 +297,12 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
               }`}>URL</label>
             <div className="flex items-center gap-2">
-              <p className={`flex-1 break-all text-sm font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
-                }`}>{currentWebsite.url}</p>
+              <a
+                href={currentWebsite.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex-1 break-all text-sm font-normal underline transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9] hover:text-white' : 'text-[#787774] hover:text-black'
+                  }`}>{currentWebsite.url}</a>
               <a
                 href={currentWebsite.url}
                 target="_blank"
