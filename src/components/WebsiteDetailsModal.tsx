@@ -256,20 +256,21 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                className={`px-3 py-1.5 border rounded-lg transition-all duration-150 flex items-center gap-2 text-xs font-medium ${isDarkMode
+                  ? 'border-[#2e2e2e] text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e] hover:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef] hover:border-[#d4d4d4]'
                   }`}
                 title="Edit website"
               >
                 <Edit2 className="h-3.5 w-3.5" />
+                <span>EDIT</span>
               </button>
             )}
             <button
               onClick={onClose}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-red-400 hover:bg-red-900/30'
+                : 'text-[#787774] hover:text-red-600 hover:bg-red-50'
                 }`}
             >
               <X className="h-3.5 w-3.5" />
