@@ -30,20 +30,22 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
     const containerRef = useRef<HTMLDivElement>(null);
     const [isReady, setIsReady] = useState(false);
 
-    // Colors for categories
-    const categoryColors: Record<string, string> = {
-        'Development': '#3b82f6', // blue
-        'Design': '#ec4899',      // pink
-        'Research': '#8b5cf6',    // purple
-        'News': '#10b981',        // green
-        'Shopping': '#f59e0b',    // amber
-        'Social': '#ef4444',      // red
-        'Tools': '#6366f1',       // indigo
-        'Other': '#64748b'        // slate
-    };
+    // Generate consistent color from string
+    const stringToColor = (str: string) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
 
-    const getCategoryColor = (cat: string) => {
-        return categoryColors[cat] || categoryColors['Other'];
+        // Use HSL for better color control
+        // Hue: based on hash
+        const h = Math.abs(hash % 360);
+        // Saturation: 70% for vibrancy
+        const s = 70;
+        // Lightness: Different for dark/light mode to ensure readability
+        const l = isDarkMode ? 60 : 50;
+
+        return `hsl(${h}, ${s}%, ${l}%)`;
     };
 
     // Transform websites into graph data
@@ -73,7 +75,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ websites, onNodeClick }
                 id: `cat-${cat}`,
                 name: cat,
                 val: 15, // larger size
-                color: getCategoryColor(cat),
+                color: stringToColor(cat),
                 type: 'category'
             });
         });
