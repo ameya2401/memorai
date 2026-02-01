@@ -116,6 +116,15 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
       if (error) throw error;
 
       toast.success('Website updated successfully');
+
+      setCurrentWebsite(prev => ({
+        ...prev,
+        title: editData.title.trim(),
+        category: finalCategory,
+        description: editData.description.trim() || undefined,
+        updated_at: new Date().toISOString(),
+      }));
+
       setIsEditing(false);
       onUpdate();
     } catch (error: unknown) {
