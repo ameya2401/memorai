@@ -23,8 +23,20 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
+  const [newCategory, setNewCategory] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Initialize category to first available or empty
+  React.useEffect(() => {
+    if (isOpen) {
+      if (categories.length > 0) {
+        setCategory(categories[0]);
+      } else {
+        setCategory('Uncategorized');
+      }
+    }
+  }, [isOpen, categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,14 +51,19 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
         processedUrl = 'https://' + processedUrl;
       }
 
-      const finalCategory = category.trim() || 'Uncategorized';
+      let finalCategory = category;
 
-      // Check if category needs to be created (if it's not in the list and not Uncategorized/Recently Added)
-      if (
-        finalCategory !== 'Uncategorized' &&
-        finalCategory !== 'Recently Added' &&
-        !categories.includes(finalCategory)
-      ) {
+      // Handle new category creation
+      if (category === '__create_new__') {
+        const trimmedNewCategory = newCategory.trim();
+        if (!trimmedNewCategory) {
+          toast.error('Please enter a category name');
+          setLoading(false);
+          return;
+        }
+        finalCategory = trimmedNewCategory;
+
+        // Create the new category
         const { error: categoryError } = await supabase
           .from('categories')
           .insert({
@@ -56,9 +73,10 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
           .select()
           .single();
 
-        // Ignore duplicate error safely
+        // Ignore duplicate error safely (code 23505)
         if (categoryError && categoryError.code !== '23505') {
           console.error('Error creating category:', categoryError);
+          // Continue anyway, as we can still try to save the website with this category string
         }
       }
 
@@ -89,6 +107,7 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
     setUrl('');
     setTitle('');
     setCategory('');
+    setNewCategory('');
     setDescription('');
     onClose();
   };
@@ -184,24 +203,45 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
             <div className="relative">
               <Tag className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
                 }`} />
-              <input
+              <select
                 id="category"
-                type="text"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                list="categories"
-                placeholder="e.g., AI Tools, Job Portals, Blogs"
-                className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
-                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
-                  : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                onChange={(e) => {
+                  setCategory(e.target.value);
+                  if (e.target.value !== '__create_new__') {
+                    setNewCategory('');
+                  }
+                }}
+                className={`w-full pl-10 pr-3 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 appearance-none ${isDarkMode
+                  ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9]'
+                  : 'border-[#e9e9e9] bg-white text-[#37352f]'
                   }`}
-              />
-              <datalist id="categories">
+              >
+                <option value="Uncategorized">Uncategorized</option>
+                <option value="Recently Added">📝 Recently Added</option>
                 {categories.map((cat) => (
-                  <option key={cat} value={cat} />
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                 ))}
-              </datalist>
+                <option value="__create_new__">➕ Create New Category</option>
+              </select>
             </div>
+            {category === '__create_new__' && (
+              <div className="mt-2">
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="Enter new category name..."
+                  className={`w-full px-2 py-1.5 border rounded-lg font-normal text-sm focus:outline-none transition-colors duration-300 ${isDarkMode
+                    ? 'border-[#2e2e2e] bg-[#191919] text-[#e9e9e9] placeholder-[#787774] focus:border-[#3e3e3e]'
+                    : 'border-[#e9e9e9] bg-white text-[#37352f] placeholder-[#9b9a97] focus:border-[#c9c9c9]'
+                    }`}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -239,7 +279,7 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading || !url.trim()}
+              disabled={loading || !url.trim() || (category === '__create_new__' && !newCategory.trim())}
               className={`flex-1 px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode
                 ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
                 : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'

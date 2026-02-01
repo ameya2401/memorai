@@ -7,7 +7,7 @@ export interface Website {
   favicon?: string;
   user_id: string;
   created_at: string;
-  last_reminded_at?: string;
+  last_reminded_at?: string | null;
   reminder_dismissed?: boolean;
   is_pinned?: boolean;
 }
