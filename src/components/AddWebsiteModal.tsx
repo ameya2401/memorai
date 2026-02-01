@@ -39,10 +39,33 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({
         processedUrl = 'https://' + processedUrl;
       }
 
+      const finalCategory = category.trim() || 'Uncategorized';
+
+      // Check if category needs to be created (if it's not in the list and not Uncategorized/Recently Added)
+      if (
+        finalCategory !== 'Uncategorized' &&
+        finalCategory !== 'Recently Added' &&
+        !categories.includes(finalCategory)
+      ) {
+        const { error: categoryError } = await supabase
+          .from('categories')
+          .insert({
+            name: finalCategory,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        // Ignore duplicate error safely
+        if (categoryError && categoryError.code !== '23505') {
+          console.error('Error creating category:', categoryError);
+        }
+      }
+
       const { error } = await supabase.from('websites').insert({
         url: processedUrl,
         title: title.trim() || processedUrl,
-        category: category.trim() || 'Uncategorized',
+        category: finalCategory,
         description: description.trim() || null,
         user_id: user.id,
         favicon: `https://www.google.com/s2/favicons?domain=${new URL(processedUrl).hostname}&sz=32`,

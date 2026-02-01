@@ -15,7 +15,7 @@ import WebsiteDetailsModal from './WebsiteDetailsModal';
 import RemindersPanel from './RemindersPanel';
 import KnowledgeGraph from './KnowledgeGraph';
 import ThemeToggle from './ThemeToggle';
-import { LogOut, Plus, Grid, List, Download, Network, Star } from 'lucide-react';
+import { LogOut, Grid, List, Download, Network, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Dashboard: React.FC = () => {
@@ -596,18 +596,10 @@ const Dashboard: React.FC = () => {
               onCategoryChange={handleCategoryChange}
               recentlyAddedCount={recentlyAddedCount}
               pendingRemindersCount={pendingRemindersCount}
+              onAddWebsite={() => setIsAddModalOpen(true)}
             />
 
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className={`w-full mt-6 border rounded-lg px-2 py-1.5 text-sm font-normal transition-all duration-150 flex items-center justify-center gap-2 ${isDarkMode
-                ? 'bg-[#2e2e2e] text-[#e9e9e9] border-[#2e2e2e] hover:bg-[#3e3e3e]'
-                : 'bg-[#f1f1ef] text-[#37352f] border-[#e9e9e9] hover:bg-[#e9e9e9]'
-                }`}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Website
-            </button>
+
 
             <button
               onClick={() => {

@@ -317,10 +317,15 @@ const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, 
           {website.title}
         </h3>
 
-        <p className={`text-xs mb-4 truncate transition-colors duration-300 ${isDarkMode ? 'text-[#787774]' : 'text-[#787774]'
-          }`}>
+        <a
+          href={website.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleLinkClick}
+          className={`text-xs truncate transition-colors duration-300 hover:underline ${isDarkMode ? 'text-[#787774] hover:text-[#e9e9e9]' : 'text-[#787774] hover:text-[#37352f]'}`}
+        >
           {website.url}
-        </p>
+        </a>
 
         {website.description && (
           <p className={`text-xs mb-6 line-clamp-3 leading-5 transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'

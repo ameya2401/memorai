@@ -76,11 +76,37 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
 
     setIsSaving(true);
     try {
+      const finalCategory = editData.category === '__create_new__' ? editData.newCategory.trim() : editData.category;
+
+      if (!finalCategory) {
+        toast.error('Category name is required');
+        setIsSaving(false);
+        return;
+      }
+
+      // If creating a new category, insert it into the categories table first
+      if (editData.category === '__create_new__') {
+        const { error: categoryError } = await supabase
+          .from('categories')
+          .insert({
+            name: finalCategory,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        // Ignore duplicate error (23505 is unique violation code in Postgres) - means it already exists which is fine
+        if (categoryError && categoryError.code !== '23505') {
+          console.error('Error creating category:', categoryError);
+          // We continue anyway, as the website update might still succeed with the string
+        }
+      }
+
       const { error } = await supabase
         .from('websites')
         .update({
           title: editData.title.trim(),
-          category: editData.category === '__create_new__' ? editData.newCategory.trim() : editData.category,
+          category: finalCategory,
           description: editData.description.trim() || null,
           updated_at: new Date().toISOString(),
         })
@@ -90,6 +116,15 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
       if (error) throw error;
 
       toast.success('Website updated successfully');
+
+      setCurrentWebsite(prev => ({
+        ...prev,
+        title: editData.title.trim(),
+        category: finalCategory,
+        description: editData.description.trim() || undefined,
+        updated_at: new Date().toISOString(),
+      }));
+
       setIsEditing(false);
       onUpdate();
     } catch (error: unknown) {
@@ -221,20 +256,21 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                  ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                className={`px-3 py-1.5 border rounded-lg transition-all duration-150 flex items-center gap-2 text-xs font-medium ${isDarkMode
+                  ? 'border-[#2e2e2e] text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e] hover:border-[#3e3e3e]'
+                  : 'border-[#e9e9e9] text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef] hover:border-[#d4d4d4]'
                   }`}
                 title="Edit website"
               >
                 <Edit2 className="h-3.5 w-3.5" />
+                <span>EDIT</span>
               </button>
             )}
             <button
               onClick={onClose}
               className={`p-2 rounded transition-all duration-150 ${isDarkMode
-                ? 'text-[#787774] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                : 'text-[#787774] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                ? 'text-[#787774] hover:text-red-400 hover:bg-red-900/30'
+                : 'text-[#787774] hover:text-red-600 hover:bg-red-50'
                 }`}
             >
               <X className="h-3.5 w-3.5" />
@@ -271,8 +307,12 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
               }`}>URL</label>
             <div className="flex items-center gap-2">
-              <p className={`flex-1 break-all text-sm font-normal transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9]' : 'text-[#787774]'
-                }`}>{currentWebsite.url}</p>
+              <a
+                href={currentWebsite.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex-1 break-all text-sm font-normal underline transition-colors duration-300 ${isDarkMode ? 'text-[#c9c9c9] hover:text-white' : 'text-[#787774] hover:text-black'
+                  }`}>{currentWebsite.url}</a>
               <a
                 href={currentWebsite.url}
                 target="_blank"
@@ -422,8 +462,48 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
             )}
           </div>
 
-          {/* Related Websites Section */}
-          {allWebsites.length > 1 && (() => {
+          {/* Action Buttons (Save/Cancel) - Moved here as requested */}
+          {isEditing && (
+            <div className={`flex items-center justify-end gap-2 pt-4 border-t transition-colors duration-300 ${isDarkMode
+              ? 'border-[#2e2e2e]'
+              : 'border-[#e9e9e9]'
+              }`}>
+              <button
+                onClick={handleCancel}
+                disabled={isSaving}
+                className={`px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 ${isDarkMode
+                  ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
+                  : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
+                  }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving || !editData.title.trim() || (editData.category === '__create_new__' && !editData.newCategory.trim())}
+                className={`px-2 py-1.5 rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 flex items-center gap-2 ${isDarkMode
+                  ? 'bg-[#2e2e2e] text-[#e9e9e9] hover:bg-[#3e3e3e]'
+                  : 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e9e9e9]'
+                  }`}
+              >
+                {isSaving ? (
+                  <>
+                    <div className={`w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin ${isDarkMode ? 'border-[#e9e9e9]' : 'border-[#37352f]'
+                      }`} />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Related Websites Section - Hidden when editing */}
+          {!isEditing && allWebsites.length > 1 && (() => {
             const relatedWebsites = findRelatedWebsites(currentWebsite, allWebsites, 4);
             if (relatedWebsites.length === 0) return null;
 
@@ -468,46 +548,6 @@ const WebsiteDetailsModal: React.FC<WebsiteDetailsModalProps> = ({
               </div>
             );
           })()}
-
-          {/* Footer */}
-          {isEditing && (
-            <div className={`flex items-center justify-end gap-2 p-4 border-t transition-colors duration-300 ${isDarkMode
-              ? 'border-[#2e2e2e] bg-[#191919]'
-              : 'border-[#e9e9e9] bg-white'
-              }`}>
-              <button
-                onClick={handleCancel}
-                disabled={isSaving}
-                className={`px-2 py-1.5 border rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 ${isDarkMode
-                  ? 'text-[#787774] border-[#2e2e2e] hover:text-[#e9e9e9] hover:bg-[#2e2e2e]'
-                  : 'text-[#787774] border-[#e9e9e9] hover:text-[#37352f] hover:bg-[#f1f1ef]'
-                  }`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving || !editData.title.trim() || (editData.category === '__create_new__' && !editData.newCategory.trim())}
-                className={`px-2 py-1.5 rounded-lg transition-all duration-150 text-sm font-normal disabled:opacity-50 flex items-center gap-2 ${isDarkMode
-                  ? 'bg-[#2e2e2e] text-[#e9e9e9] hover:bg-[#3e3e3e]'
-                  : 'bg-[#f1f1ef] text-[#37352f] hover:bg-[#e9e9e9]'
-                  }`}
-              >
-                {isSaving ? (
-                  <>
-                    <div className={`w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin ${isDarkMode ? 'border-[#e9e9e9]' : 'border-[#37352f]'
-                      }`} />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-3.5 w-3.5" />
-                    Save Changes
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
