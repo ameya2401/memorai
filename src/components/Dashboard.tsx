@@ -193,7 +193,7 @@ const Dashboard: React.FC = () => {
         observer.unobserve(currentTarget);
       }
     };
-  }, [filteredWebsites.length, visibleCount, isLoadingMore, selectedCategory]);
+  }, [filteredWebsites.length, visibleCount, isLoadingMore, selectedCategory, loading]);
 
   const fetchWebsites = async () => {
     try {
