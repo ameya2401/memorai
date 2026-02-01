@@ -122,6 +122,10 @@ Websites are displayed in three viewing modes:
 
 **Knowledge Graph View**: An innovative visual representation using force-directed graph rendering. Websites appear as nodes connected to their category hubs, allowing users to visually explore their saved content and discover relationships between items.
 
+### Data Export
+
+**JSON Export**: The system supports full data portability. Users can export their entire library of saved websites to a standardized JSON format. This ensures users are not locked into the platform and can backup their data or migrate to other tools if needed.
+
 ## 4.3 Smart Search System
 
 The search system is a cornerstone feature that sets Memorai apart from simple bookmark managers:
@@ -132,7 +136,7 @@ The smart search engine implements several sophisticated algorithms:
 
 **Levenshtein Distance Algorithm**: This edit-distance algorithm calculates how many single-character edits are needed to transform one string into another. This enables typo tolerance—searching for "reactt" will still find "React" tutorials.
 
-**Jaccard Similarity**: For multi-word queries, the system calculates the overlap between query terms and website content using set intersection over union.
+**Weighted Relevance Scoring**: The search engine uses a sophisticated scoring system that assigns different weights to matches in different fields. A keyword match in the **Title** (1000 points) is considered more relevant than a match in the **Category** (400 points) or **Description** (200 points). This ensures that the most relevant results appear at the top.
 
 **Word Stemming**: Basic stemming removes common suffixes (ing, ed, es, tion, etc.) so that "programming" matches "program" and "coded" matches "coding".
 
@@ -232,6 +236,20 @@ The graph view uses force-directed graph rendering to visualize saved websites:
 **Category Clustering**: Websites naturally cluster around their category nodes, making it easy to see content groupings.
 
 **Interactive Navigation**: Click on category nodes to zoom in on specific clusters, or click websites to view details.
+
+## 4.11 Content Recommender System
+
+The application features a "Related to this item" section that acts as a personal discovery engine for your own content:
+
+**Zero-Cost Recommendation**: Unlike the search feature which uses external AI, the recommender system runs entirely in the browser using efficient statistical algorithms.
+
+**Jaccard Similarity**: To find related websites, the system uses the Jaccard index to calculate the similarity coefficient between sets of tokenized words from titles and descriptions.
+
+**Multi-Signal Scoring**: The relationship score is a composite metric derived from multiple signals:
+- **Same Category**: +5 relevance points
+- **Same Domain**: +3 relevance points
+- **Title Word Overlap**: Up to +4 points based on similarity
+- **Description Overlap**: Up to +3 points based on similarity
 
 ---
 
