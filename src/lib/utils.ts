@@ -1,4 +1,3 @@
-
 export const getCategoryColor = (category: string) => {
     const colors = [
         'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',

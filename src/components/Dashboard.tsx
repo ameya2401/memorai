@@ -325,7 +325,6 @@ const Dashboard: React.FC = () => {
     ? websites.filter(w => !searchResultIds.has(w.id) && (selectedCategory === 'all' || w.category === selectedCategory))
     : [];
 
-
   const handleTogglePin = async (website: Website) => {
     try {
       const newPinnedStatus = !website.is_pinned;
@@ -596,10 +595,7 @@ const Dashboard: React.FC = () => {
               onCategoryChange={handleCategoryChange}
               recentlyAddedCount={recentlyAddedCount}
               pendingRemindersCount={pendingRemindersCount}
-              onAddWebsite={() => setIsAddModalOpen(true)}
             />
-
-
 
             <button
               onClick={() => {
