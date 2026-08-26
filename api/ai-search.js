@@ -226,5 +226,3 @@ Respond with JSON: {"ids": ["id1","id2"]}. No extra text.`;
     res.status(500).json({ error: 'Internal Server Error', details: error?.message || 'Unknown error' });
   }
 }
-
-

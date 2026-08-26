@@ -109,5 +109,3 @@ function respondHtmlAutoClose(res, status, message) {
 function escapeHtml(str) {
   return String(str).replace(/[&<>\"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]));
 }
-
-

@@ -17,7 +17,6 @@ interface WebsiteCardProps {
 const WebsiteCard: React.FC<WebsiteCardProps> = ({ website, viewMode, onDelete, onView, onTogglePin }) => {
   const { isDarkMode } = useTheme();
 
-
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
