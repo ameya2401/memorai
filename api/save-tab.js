@@ -55,8 +55,7 @@ export default async function handler(req, res) {
     const sanitizedCategory = sanitize(category);
     const sanitizedDescription = sanitize(description);
 
-    // Use the provided userId directly
-    let resolvedUserId = bodyUserId;
+    const resolvedUserId = bodyUserId;
 
     if (!resolvedUserId) {
       res.status(400).json({ error: 'Missing userId - authentication required' });
@@ -80,11 +79,6 @@ export default async function handler(req, res) {
         persistSession: false
       }
     });
-
-    if (!resolvedUserId) {
-      res.status(400).json({ error: 'Missing userId or user not found for userEmail' });
-      return;
-    }
 
     // Auto-create category if it doesn't exist (and not a system category)
     if (sanitizedCategory &&
